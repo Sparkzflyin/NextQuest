@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { profiles } from "@/lib/db/schema";
 import { LogoutButton } from "./logout-button";
 
 export async function Nav() {
@@ -8,9 +11,18 @@ export async function Nav() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  let isAdmin = false;
+  if (user) {
+    const [p] = await db
+      .select({ isAdmin: profiles.isAdmin })
+      .from(profiles)
+      .where(eq(profiles.id, user.id));
+    isAdmin = !!p?.isAdmin;
+  }
+
   return (
     <header className="relative z-40 border-b-2 border-violet-900/50 bg-[#06070d]/90 backdrop-blur-sm">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
+      <nav className="flex w-full items-center justify-between gap-4 px-6 py-3 sm:px-8">
         <Link
           href="/"
           className="font-pixel group flex items-baseline gap-2 text-sm tracking-tight"
@@ -51,6 +63,14 @@ export async function Nav() {
               >
                 Profile
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="font-pixel border-2 border-amber-500/70 px-2 py-1 text-[10px] text-amber-300 transition-all hover:bg-amber-950/40 hover:shadow-[0_0_10px_rgba(251,191,36,0.45)]"
+                >
+                  ADMIN
+                </Link>
+              )}
               <span className="font-pixel hidden items-center gap-1.5 text-[9px] text-violet-400/80 sm:flex">
                 <span className="blink text-neon-green">●</span>
                 P1

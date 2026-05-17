@@ -43,5 +43,6 @@ export async function vote(input: z.input<typeof schema>) {
 
   revalidatePath(`/games/${parsed.data.gameId}`);
   revalidatePath("/leaderboards");
+  revalidatePath("/");
   return { ok: true as const };
 }

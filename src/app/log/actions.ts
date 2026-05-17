@@ -62,6 +62,7 @@ export async function logGame(input: z.input<typeof schema>) {
         platform: parsed.data.platform,
         playstyle: parsed.data.playstyle,
         body: parsed.data.body,
+        status: "pending",
       })
       .onConflictDoUpdate({
         target: [reviews.userId, reviews.gameId],
@@ -72,6 +73,10 @@ export async function logGame(input: z.input<typeof schema>) {
           platform: parsed.data.platform,
           playstyle: parsed.data.playstyle,
           body: parsed.data.body,
+          // Edits re-queue the review for moderation so an approved entry can't be silently rewritten.
+          status: "pending",
+          moderatedAt: null,
+          moderatedBy: null,
         },
       });
 

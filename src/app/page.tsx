@@ -1,7 +1,30 @@
 import Link from "next/link";
+import { and, count, eq } from "drizzle-orm";
 import { GENRES } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { reviews, votes } from "@/lib/db/schema";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let score = 0;
+  if (user) {
+    const [r] = await db
+      .select({ n: count() })
+      .from(reviews)
+      .where(and(eq(reviews.userId, user.id), eq(reviews.status, "approved")));
+    const [v] = await db
+      .select({ n: count() })
+      .from(votes)
+      .where(eq(votes.userId, user.id));
+    score = (r?.n ?? 0) + (v?.n ?? 0);
+  }
+  const scoreLabel = score.toString().padStart(4, "0");
+
   return (
     <>
       {/* CRT overlays: scoped to landing only, unmount on navigation */}
@@ -14,24 +37,24 @@ export default function Home() {
       <div className="relative left-1/2 -my-8 w-screen -translate-x-1/2 overflow-hidden">
         {/* ── ATTRACT BAR ── */}
         <div className="font-pixel relative z-10 border-y border-violet-900/40 bg-[#0a0c18]/80 px-6 py-2 text-[10px] tracking-widest text-violet-300/80 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <div className="mx-auto flex max-w-7xl items-center justify-between">
             <span>
               <span className="text-neon-cyan neon-cyan">P1</span>
               <span className="mx-2 text-violet-700">▮</span>
-              READY
+              {user ? "READY" : "INSERT COIN"}
             </span>
             <span className="hidden sm:inline">
-              HI-SCORE <span className="neon-gold">999900</span>
+              HI-SCORE <span className="neon-gold">{scoreLabel}</span>
             </span>
             <span>
-              CREDITS <span className="text-neon-cyan neon-cyan">01</span>
+              CREDITS <span className="text-neon-cyan neon-cyan">{user ? "01" : "00"}</span>
             </span>
           </div>
         </div>
 
         {/* ── HERO / TITLE SCREEN ── */}
         <section className="bg-grid relative overflow-hidden">
-          <div className="relative mx-auto max-w-6xl px-6 pt-20 pb-24 text-center sm:pt-28 sm:pb-32">
+          <div className="relative mx-auto max-w-7xl px-6 pt-20 pb-24 text-center sm:pt-28 sm:pb-32">
             {/* corner brackets */}
             <span className="font-pixel text-neon-violet absolute top-6 left-6 text-xs opacity-70">
               ┌
@@ -120,7 +143,7 @@ export default function Home() {
         </div>
 
         {/* ── QUEST OBJECTIVES (how it works) ── */}
-        <section className="relative mx-auto max-w-6xl px-6 py-20">
+        <section className="relative mx-auto max-w-7xl px-6 py-20">
           <header className="mb-10 flex items-end justify-between">
             <div>
               <p className="font-pixel text-[10px] tracking-widest text-neon-cyan neon-cyan">
@@ -191,7 +214,7 @@ export default function Home() {
         </section>
 
         {/* ── SELECT QUEST (genres) ── */}
-        <section className="relative mx-auto max-w-6xl px-6 pb-24">
+        <section className="relative mx-auto max-w-7xl px-6 pb-24">
           <header className="mb-8 flex items-end justify-between">
             <div>
               <p className="font-pixel text-[10px] tracking-widest text-neon-cyan neon-cyan">

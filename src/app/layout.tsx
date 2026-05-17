@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Press_Start_2P, VT323 } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import { Footer } from "@/components/footer";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const pressStart = Press_Start_2P({
@@ -26,10 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${pressStart.variable} ${vt323.variable} min-h-screen bg-[#06070d] text-neutral-100 antialiased`}
+        className={`${geistSans.variable} ${pressStart.variable} ${vt323.variable} flex min-h-screen flex-col bg-[#06070d] text-neutral-100 antialiased`}
       >
         <Nav />
-        <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">{children}</main>
+        <Footer />
       </body>
     </html>
   );

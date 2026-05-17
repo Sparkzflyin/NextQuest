@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { games, reviews, votes, profiles } from "@/lib/db/schema";
-import { eq, sum, count, desc, and } from "drizzle-orm";
+import { eq, sum, count, desc, and, or } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { VoteButtons } from "@/components/vote-buttons";
 import { Card } from "@/components/ui/card";
@@ -35,17 +35,26 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   const reviewRows = await db
     .select({
       id: reviews.id,
+      userId: reviews.userId,
       rating: reviews.rating,
       body: reviews.body,
       length: reviews.length,
       platform: reviews.platform,
       playstyle: reviews.playstyle,
+      status: reviews.status,
       createdAt: reviews.createdAt,
       username: profiles.username,
     })
     .from(reviews)
     .innerJoin(profiles, eq(profiles.id, reviews.userId))
-    .where(eq(reviews.gameId, id))
+    .where(
+      and(
+        eq(reviews.gameId, id),
+        user
+          ? or(eq(reviews.status, "approved"), eq(reviews.userId, user.id))!
+          : eq(reviews.status, "approved"),
+      ),
+    )
     .orderBy(desc(reviews.createdAt))
     .limit(50);
 
@@ -97,8 +106,20 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           <div className="space-y-3">
             {reviewRows.map((r) => (
               <Card key={r.id}>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-neutral-200">{r.username}</span>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-medium text-neutral-200">
+                    {r.username}
+                    {r.status === "pending" && (
+                      <span className="font-pixel border border-amber-500/60 px-1.5 py-0.5 text-[9px] tracking-widest text-amber-300">
+                        PENDING
+                      </span>
+                    )}
+                    {r.status === "rejected" && (
+                      <span className="font-pixel border border-red-500/60 px-1.5 py-0.5 text-[9px] tracking-widest text-red-300">
+                        REJECTED
+                      </span>
+                    )}
+                  </span>
                   <span className="font-mono text-sm text-violet-300">{r.rating}/10</span>
                 </div>
                 <div className="mb-2 text-xs text-neutral-500">

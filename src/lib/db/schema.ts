@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
   check,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -17,6 +18,7 @@ export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
   username: text("username").notNull().unique(),
   avatarUrl: text("avatar_url"),
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -48,13 +50,18 @@ export const reviews = pgTable(
     platform: text("platform"),
     playstyle: text("playstyle").array().notNull().default(sql`'{}'::text[]`),
     body: text("body"),
+    status: text("status").notNull().default("pending"),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    moderatedBy: uuid("moderated_by").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("reviews_user_game_uniq").on(t.userId, t.gameId),
+    index("reviews_status_idx").on(t.status),
     check("reviews_rating_range", sql`${t.rating} BETWEEN 1 AND 10`),
     check("reviews_difficulty_range", sql`${t.difficulty} IS NULL OR ${t.difficulty} BETWEEN 1 AND 5`),
     check("reviews_length_enum", sql`${t.length} IS NULL OR ${t.length} IN ('short','medium','long','endless')`),
+    check("reviews_status_enum", sql`${t.status} IN ('pending','approved','rejected')`),
   ],
 );
 

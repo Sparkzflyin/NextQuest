@@ -21,12 +21,22 @@ create policy "games_read_all"      on public.games for select using (true);
 create policy "games_insert_authed" on public.games for insert
   with check (auth.role() = 'authenticated');
 
--- reviews: read all, write own.
-drop policy if exists "reviews_read_all"   on public.reviews;
-drop policy if exists "reviews_write_self" on public.reviews;
-create policy "reviews_read_all"   on public.reviews for select using (true);
+-- reviews: public select only approved rows; authors also see their own (incl. pending/rejected);
+-- admins see everything. Writes restricted to the author; admins may update moderation columns.
+drop policy if exists "reviews_read_all"     on public.reviews;
+drop policy if exists "reviews_read_public"  on public.reviews;
+drop policy if exists "reviews_write_self"   on public.reviews;
+drop policy if exists "reviews_admin_all"    on public.reviews;
+create policy "reviews_read_public" on public.reviews for select using (
+  status = 'approved'
+  OR auth.uid() = user_id
+  OR EXISTS (select 1 from public.profiles p where p.id = auth.uid() AND p.is_admin)
+);
 create policy "reviews_write_self" on public.reviews for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "reviews_admin_all" on public.reviews for all
+  using (EXISTS (select 1 from public.profiles p where p.id = auth.uid() AND p.is_admin))
+  with check (EXISTS (select 1 from public.profiles p where p.id = auth.uid() AND p.is_admin));
 
 -- votes: read all (for tallies), write own.
 drop policy if exists "votes_read_all"   on public.votes;
