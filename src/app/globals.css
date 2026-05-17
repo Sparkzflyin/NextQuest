@@ -1,19 +1,226 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
+  --background: #06070d;
   --foreground: #ededed;
+
+  /* arcade palette */
+  --crt-bg: #06070d;
+  --crt-bg-soft: #0d0e1c;
+  --neon-violet: #c084fc;
+  --neon-violet-hot: #e879f9;
+  --neon-cyan: #22d3ee;
+  --neon-magenta: #ff2bd6;
+  --neon-gold: #fbbf24;
+  --neon-green: #4ade80;
+  --grid-line: rgba(192, 132, 252, 0.08);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-crt-bg: var(--crt-bg);
+  --color-neon-violet: var(--neon-violet);
+  --color-neon-cyan: var(--neon-cyan);
+  --color-neon-gold: var(--neon-gold);
+  --color-neon-green: var(--neon-green);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-pixel: var(--font-press-start);
+  --font-terminal: var(--font-vt323);
 }
 
 html,
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* ── Pixel-perfect rendering for retro elements ── */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+}
+
+/* ── Typography utilities ── */
+.font-pixel {
+  font-family: var(--font-press-start), ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+.font-terminal {
+  font-family: var(--font-vt323), ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+/* ── CRT scanlines (overlay element) ── */
+.crt-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0) 2px,
+      rgba(0, 0, 0, 0.22) 2px,
+      rgba(0, 0, 0, 0.22) 3px
+    );
+  mix-blend-mode: multiply;
+  z-index: 30;
+}
+
+/* ── CRT vignette (curved-tube edges) ── */
+.crt-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 110% 80% at 50% 50%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.55) 92%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  z-index: 31;
+}
+
+/* ── Subtle CRT flicker ── */
+.crt-flicker {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(192, 132, 252, 0.025);
+  animation: crt-flicker 4.2s infinite steps(1);
+  z-index: 32;
+}
+@keyframes crt-flicker {
+  0%, 92%, 100% { opacity: 0; }
+  93% { opacity: 1; }
+  95% { opacity: 0; }
+  97% { opacity: 0.7; }
+}
+
+/* ── Background grid (16-bit map feel) ── */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ── Neon glow text ── */
+.neon-violet {
+  color: #f5d0fe;
+  text-shadow:
+    0 0 2px #fae8ff,
+    0 0 6px var(--neon-violet),
+    0 0 14px var(--neon-violet),
+    0 0 28px rgba(192, 132, 252, 0.6);
+}
+.neon-cyan {
+  color: #cffafe;
+  text-shadow:
+    0 0 2px #ecfeff,
+    0 0 6px var(--neon-cyan),
+    0 0 14px var(--neon-cyan),
+    0 0 28px rgba(34, 211, 238, 0.55);
+}
+.neon-gold {
+  color: #fef3c7;
+  text-shadow:
+    0 0 2px #fffbeb,
+    0 0 6px var(--neon-gold),
+    0 0 14px var(--neon-gold);
+}
+
+/* ── Chromatic aberration (RGB split) ── */
+.chroma-split {
+  position: relative;
+  color: #f5d0fe;
+  text-shadow:
+    -2px 0 0 rgba(255, 43, 214, 0.85),
+    2px 0 0 rgba(34, 211, 238, 0.85),
+    0 0 14px rgba(192, 132, 252, 0.7);
+}
+
+/* ── Chunky 4px pixel border (stepped corners, no radius) ── */
+.pixel-border {
+  position: relative;
+  box-shadow:
+    inset 0 0 0 2px currentColor,
+    0 4px 0 0 currentColor;
+}
+.pixel-border-violet {
+  --pixel-color: var(--neon-violet);
+  box-shadow:
+    0 0 0 2px var(--pixel-color),
+    0 0 0 4px #06070d,
+    0 0 0 6px var(--pixel-color),
+    0 0 16px rgba(192, 132, 252, 0.35);
+}
+.pixel-border-cyan {
+  --pixel-color: var(--neon-cyan);
+  box-shadow:
+    0 0 0 2px var(--pixel-color),
+    0 0 0 4px #06070d,
+    0 0 0 6px var(--pixel-color),
+    0 0 16px rgba(34, 211, 238, 0.35);
+}
+.pixel-border-thin {
+  box-shadow:
+    0 0 0 1px var(--neon-violet),
+    0 0 0 2px transparent,
+    0 0 0 3px rgba(192, 132, 252, 0.4);
+}
+
+/* ── Blinking cursor / star ── */
+.blink {
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* ── Slow pulse for "PRESS START" ── */
+.press-pulse {
+  animation: press-pulse 1.6s ease-in-out infinite;
+}
+@keyframes press-pulse {
+  0%, 100% { opacity: 1; transform: translateY(0); }
+  50% { opacity: 0.55; transform: translateY(-1px); }
+}
+
+/* ── Marquee scroll ── */
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.marquee-track {
+  display: inline-block;
+  padding-left: 100%;
+  animation: marquee 28s linear infinite;
+}
+@keyframes marquee {
+  to { transform: translateX(-100%); }
+}
+
+/* ── Scanline-on-text shimmer (subtle, for hero only) ── */
+.text-scan {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95) 0,
+    rgba(255, 255, 255, 0.95) 2px,
+    rgba(255, 255, 255, 0.55) 2px,
+    rgba(255, 255, 255, 0.55) 3px
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* ── Heading style for dialed-down content pages ── */
+.heading-pixel {
+  font-family: var(--font-press-start), ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  color: #f5d0fe;
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.35);
 }
