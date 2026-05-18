@@ -133,7 +133,7 @@ export default async function Home() {
             </div>
 
             <p className="font-pixel mt-12 text-[10px] tracking-widest text-violet-500/60">
-              © 1989 NEXTQUEST CORP · ALL RIGHTS RESERVED
+              © 2026 SENSORMEDIA LLC ALL RIGHTS RESERVED
             </p>
           </div>
         </section>
