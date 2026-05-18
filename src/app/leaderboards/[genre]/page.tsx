@@ -51,9 +51,9 @@ export default async function GenreLeaderboard({ params }: { params: Promise<{ g
             <li key={g.id}>
               <Link
                 href={`/games/${g.id}`}
-                className="flex items-center gap-4 rounded-lg border border-neutral-800 bg-neutral-950/50 p-3 hover:border-violet-500"
+                className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950/50 p-3 hover:border-violet-500 sm:gap-4"
               >
-                <span className="w-8 text-center font-mono text-lg text-neutral-500">
+                <span className="w-6 text-center font-mono text-base text-neutral-500 sm:w-8 sm:text-lg">
                   {i + 1}
                 </span>
                 {g.coverUrl ? (
@@ -61,10 +61,10 @@ export default async function GenreLeaderboard({ params }: { params: Promise<{ g
                   <img
                     src={g.coverUrl}
                     alt=""
-                    className="h-14 w-20 rounded object-cover"
+                    className="h-12 w-16 rounded object-cover sm:h-14 sm:w-20"
                   />
                 ) : (
-                  <div className="h-14 w-20 rounded bg-neutral-800" />
+                  <div className="h-12 w-16 rounded bg-neutral-800 sm:h-14 sm:w-20" />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{g.title}</div>

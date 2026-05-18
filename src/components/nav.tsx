@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { LogoutButton } from "./logout-button";
+import { MobileNav } from "./mobile-nav";
 
 export async function Nav() {
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export async function Nav() {
 
   return (
     <header className="relative z-40 border-b-2 border-violet-900/50 bg-[#06070d]/90 backdrop-blur-sm">
-      <nav className="flex w-full items-center justify-between gap-4 px-6 py-3 sm:px-8">
+      <nav className="flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 md:px-8">
         <Link
           href="/"
           className="font-pixel group flex items-baseline gap-2 text-sm tracking-tight"
@@ -36,7 +37,7 @@ export async function Nav() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-5 text-sm">
+        <div className="hidden items-center gap-5 text-sm md:flex">
           <Link
             href="/leaderboards"
             className="font-terminal text-lg text-violet-300 hover:text-neon-cyan"
@@ -94,6 +95,8 @@ export async function Nav() {
             </>
           )}
         </div>
+
+        <MobileNav signedIn={!!user} isAdmin={isAdmin} />
       </nav>
     </header>
   );

@@ -46,7 +46,7 @@ export function VoteButtons({
         aria-label="Upvote"
         onClick={() => cast(1)}
         className={cn(
-          "rounded-md p-1.5 hover:bg-neutral-800",
+          "flex h-11 w-11 items-center justify-center rounded-md hover:bg-neutral-800",
           state.myVote === 1 && "text-emerald-400",
         )}
       >
@@ -66,7 +66,7 @@ export function VoteButtons({
         aria-label="Downvote"
         onClick={() => cast(-1)}
         className={cn(
-          "rounded-md p-1.5 hover:bg-neutral-800",
+          "flex h-11 w-11 items-center justify-center rounded-md hover:bg-neutral-800",
           state.myVote === -1 && "text-red-400",
         )}
       >
