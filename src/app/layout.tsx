@@ -20,9 +20,27 @@ const vt323 = VT323({
   display: "swap",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://nextquests.com";
+const description =
+  "Log the games. Rate the bangers. Climb the community-ranked top 20 in every genre.";
+
 export const metadata: Metadata = {
-  title: "NextQuest",
-  description: "Log the games you've played, rate them, and climb the genre leaderboards.",
+  metadataBase: new URL(siteUrl),
+  title: { default: "NextQuest", template: "%s · NextQuest" },
+  description,
+  openGraph: {
+    type: "website",
+    siteName: "NextQuest",
+    title: "NextQuest",
+    description,
+    url: siteUrl,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NextQuest",
+    description,
+  },
 };
 
 export const viewport: Viewport = {
