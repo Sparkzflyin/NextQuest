@@ -3,6 +3,8 @@ import { Geist, Press_Start_2P, VT323 } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
+import { CookieBanner } from "@/components/cookie-banner";
+import { AnalyticsGate } from "@/components/analytics-gate";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const pressStart = Press_Start_2P({
@@ -37,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Nav />
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
         <Footer />
+        <CookieBanner />
+        <AnalyticsGate />
       </body>
     </html>
   );
