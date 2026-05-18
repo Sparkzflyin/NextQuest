@@ -102,20 +102,20 @@ export default async function Home() {
                   <span className="press-pulse text-neon-cyan neon-cyan">▶</span>
                   <span className="neon-violet">PRESS START</span>
                 </span>
-                <span className="text-violet-400 opacity-0 transition-opacity group-hover:opacity-100">
-                  NEW GAME
+                <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-400/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-400 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                  CREATE AN ACCOUNT
                 </span>
               </Link>
               <Link
                 href="/login"
-                className="group flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
+                className="group relative flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
               >
                 <span className="flex items-center gap-3">
                   <span className="opacity-50 group-hover:opacity-100">▷</span>
                   <span>CONTINUE</span>
                 </span>
-                <span className="text-violet-500 opacity-0 transition-opacity group-hover:opacity-100">
-                  LOAD GAME
+                <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-500/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-500 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                  LOGIN
                 </span>
               </Link>
               <Link

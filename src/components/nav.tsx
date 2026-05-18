@@ -22,7 +22,7 @@ export async function Nav() {
   }
 
   return (
-    <header className="relative z-40 border-b-2 border-violet-900/50 bg-[#06070d]/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b-2 border-violet-900/50 bg-[#06070d]/90 backdrop-blur-sm">
       <nav className="flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 md:px-8">
         <Link
           href="/"

@@ -26,7 +26,7 @@ export function MobileNav({ signedIn, isAdmin }: Props) {
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 w-11 items-center justify-center border-2 border-violet-800/60 text-violet-200 transition-colors hover:border-neon-violet hover:text-neon-violet"
+        className="relative z-50 flex h-11 w-11 items-center justify-center border-2 border-violet-800/60 bg-[#06070d] text-violet-200 transition-colors hover:border-neon-violet hover:text-neon-violet"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
