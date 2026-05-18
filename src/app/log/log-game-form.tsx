@@ -13,9 +13,15 @@ import { filterTags, sanitizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { logGame } from "./actions";
 
-export function LogGameForm({ allPlaystyles }: { allPlaystyles: string[] }) {
+export function LogGameForm({
+  allPlaystyles,
+  initialPicked = null,
+}: {
+  allPlaystyles: string[];
+  initialPicked?: RawgPickedGame | null;
+}) {
   const router = useRouter();
-  const [picked, setPicked] = useState<RawgPickedGame | null>(null);
+  const [picked, setPicked] = useState<RawgPickedGame | null>(initialPicked);
   const [rating, setRating] = useState(7);
   const [difficulty, setDifficulty] = useState(3);
   const [length, setLength] = useState<(typeof LENGTHS)[number]>("medium");

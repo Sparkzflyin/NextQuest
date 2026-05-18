@@ -35,6 +35,50 @@ export async function searchGames(query: string, limit = 10) {
   }));
 }
 
+// Most of our genre names slugify cleanly (lowercase + space→hyphen). A few
+// of RAWG's slugs don't match — keep overrides here when they crop up.
+const GENRE_SLUG_OVERRIDES: Record<string, string> = {
+  RPG: "role-playing-games-rpg",
+};
+
+function genreToRawgSlug(name: string): string {
+  return GENRE_SLUG_OVERRIDES[name] ?? name.toLowerCase().replace(/\s+/g, "-");
+}
+
+export async function browseByGenres({
+  genreNames,
+  excludeIds = [],
+  limit = 24,
+}: {
+  genreNames: string[];
+  excludeIds?: number[];
+  limit?: number;
+}) {
+  if (!genreNames.length) return [];
+  const slugs = genreNames.map(genreToRawgSlug).join(",");
+  const url = new URL(`${BASE}/games`);
+  url.searchParams.set("key", key());
+  url.searchParams.set("genres", slugs);
+  url.searchParams.set("ordering", "-rating");
+  url.searchParams.set("page_size", String(Math.min(limit, 40)));
+  if (excludeIds.length) {
+    // RAWG caps URL length around ~2KB. ~30 IDs of 6 digits each is fine; if a
+    // user has reviewed hundreds of games we'll silently drop the overflow.
+    url.searchParams.set("exclude_games", excludeIds.slice(0, 200).join(","));
+  }
+  const res = await fetch(url.toString(), { next: { revalidate: 3600 } });
+  if (!res.ok) throw new Error(`RAWG browse failed: ${res.status}`);
+  const json = (await res.json()) as { results: RawgGame[] };
+  return json.results.map((g) => ({
+    rawgId: g.id,
+    slug: g.slug,
+    title: g.name,
+    coverUrl: g.background_image,
+    released: g.released,
+    genres: g.genres.map((x) => x.name),
+  }));
+}
+
 export async function fetchGame(rawgId: number) {
   const url = new URL(`${BASE}/games/${rawgId}`);
   url.searchParams.set("key", key());
