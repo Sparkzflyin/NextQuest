@@ -103,7 +103,7 @@ export default async function Home() {
                   <span className="neon-violet">PRESS START</span>
                 </span>
                 <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-400/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-400 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-                  CREATE AN ACCOUNT
+                  NEW ACCOUNT
                 </span>
               </Link>
               <Link

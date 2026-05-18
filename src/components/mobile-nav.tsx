@@ -67,7 +67,7 @@ export function MobileNav({ signedIn, isAdmin }: Props) {
                     className="font-pixel mt-2 flex items-center justify-between border-2 border-neon-violet bg-violet-950/40 px-4 py-3 text-[11px] text-violet-100"
                   >
                     <span>▶ START</span>
-                    <span className="text-violet-300">NEW GAME</span>
+                    <span className="text-violet-300">NEW ACCOUNT</span>
                   </Link>
                 </>
               )}
