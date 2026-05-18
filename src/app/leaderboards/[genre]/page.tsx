@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { games, votes } from "@/lib/db/schema";
-import { GENRES } from "@/lib/constants";
+import { canonicalGenres, games, votes } from "@/lib/db/schema";
 
 export default async function GenreLeaderboard({ params }: { params: Promise<{ genre: string }> }) {
   const { genre: raw } = await params;
   const genre = decodeURIComponent(raw);
-  if (!(GENRES as readonly string[]).includes(genre)) notFound();
+  const [exists] = await db
+    .select({ name: canonicalGenres.name })
+    .from(canonicalGenres)
+    .where(eq(canonicalGenres.name, genre))
+    .limit(1);
+  if (!exists) notFound();
 
   const rows = await db
     .select({

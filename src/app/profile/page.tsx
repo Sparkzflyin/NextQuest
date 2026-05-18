@@ -1,8 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { profiles, userGenres, userPlaystyles } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { GENRES, PLAYSTYLES } from "@/lib/constants";
+import {
+  profiles,
+  userGenres,
+  userPlaystyles,
+  canonicalGenres,
+  canonicalPlaystyles,
+} from "@/lib/db/schema";
+import { asc, eq } from "drizzle-orm";
 import { ProfileForm } from "./profile-form";
 
 export default async function ProfilePage() {
@@ -18,6 +23,14 @@ export default async function ProfilePage() {
     .select()
     .from(userPlaystyles)
     .where(eq(userPlaystyles.userId, user.id));
+  const allGenres = await db
+    .select({ name: canonicalGenres.name })
+    .from(canonicalGenres)
+    .orderBy(asc(canonicalGenres.name));
+  const allPlaystyles = await db
+    .select({ name: canonicalPlaystyles.name })
+    .from(canonicalPlaystyles)
+    .orderBy(asc(canonicalPlaystyles.name));
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-8">
@@ -29,8 +42,8 @@ export default async function ProfilePage() {
         initialUsername={profile?.username ?? ""}
         initialGenres={pickedGenres.map((g) => g.genre)}
         initialPlaystyles={pickedPlaystyles.map((p) => p.playstyle)}
-        allGenres={[...GENRES]}
-        allPlaystyles={[...PLAYSTYLES]}
+        allGenres={allGenres.map((r) => r.name)}
+        allPlaystyles={allPlaystyles.map((r) => r.name)}
       />
     </div>
   );

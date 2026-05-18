@@ -1,44 +1,9 @@
-export const GENRES = [
-  "Action",
-  "Adventure",
-  "RPG",
-  "Shooter",
-  "Strategy",
-  "Puzzle",
-  "Platformer",
-  "Racing",
-  "Sports",
-  "Fighting",
-  "Simulation",
-  "Indie",
-  "Casual",
-  "Arcade",
-  "Family",
-  "Board Games",
-  "Educational",
-  "Card",
-  "Massively Multiplayer",
-] as const;
-
-export type Genre = (typeof GENRES)[number];
+// Genre + playstyle vocabularies live in the canonical_{genres,playstyles}
+// tables now (seeded in drizzle/0003_canonical_tags.sql, grown by logGame for
+// genres and approveReview for playstyles). Pages fetch them at request time.
 
 export const LENGTHS = ["short", "medium", "long", "endless"] as const;
 export type Length = (typeof LENGTHS)[number];
-
-export const PLAYSTYLES = [
-  "Story-driven",
-  "Competitive",
-  "Co-op",
-  "Exploration",
-  "Stealth",
-  "Combat-heavy",
-  "Puzzle-solving",
-  "Open-world",
-  "Linear",
-  "Replayable",
-  "Atmospheric",
-  "Speedrun-friendly",
-] as const;
 
 export const PLATFORMS = [
   "PC",

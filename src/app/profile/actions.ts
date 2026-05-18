@@ -4,9 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { profiles, userGenres, userPlaystyles } from "@/lib/db/schema";
-import { and, eq, notInArray } from "drizzle-orm";
-import { GENRES, PLAYSTYLES } from "@/lib/constants";
+import {
+  profiles,
+  userGenres,
+  userPlaystyles,
+  canonicalGenres,
+} from "@/lib/db/schema";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { sanitizeTag } from "@/lib/tags";
 
 const schema = z.object({
   username: z
@@ -14,8 +19,10 @@ const schema = z.object({
     .min(3)
     .max(32)
     .regex(/^[a-zA-Z0-9_-]+$/),
-  genres: z.array(z.enum(GENRES)),
-  playstyles: z.array(z.enum(PLAYSTYLES)),
+  // Tag arrays come in as free strings; we sanitize and validate below
+  // (genres must be canonical, playstyles can be custom).
+  genres: z.array(z.string()),
+  playstyles: z.array(z.string()),
 });
 
 export async function saveProfile(input: {
@@ -32,6 +39,26 @@ export async function saveProfile(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not signed in." };
 
+  // Genres: must be from canonical_genres. Reject anything not on that list
+  // — users can't invent genres (only RAWG can grow that vocabulary).
+  const cleanedGenres = Array.from(
+    new Set(parsed.data.genres.map(sanitizeTag).filter(Boolean)),
+  );
+  let allowedGenres: string[] = [];
+  if (cleanedGenres.length) {
+    const rows = await db
+      .select({ name: canonicalGenres.name })
+      .from(canonicalGenres)
+      .where(inArray(canonicalGenres.name, cleanedGenres));
+    allowedGenres = rows.map((r) => r.name);
+  }
+
+  // Playstyles: any sanitized tag is allowed (user can create new ones).
+  // We dedupe case-insensitively, preferring the user's exact spelling.
+  const cleanedPlaystyles = dedupeCaseInsensitive(
+    parsed.data.playstyles.map(sanitizeTag).filter(Boolean),
+  );
+
   try {
     await db
       .insert(profiles)
@@ -41,31 +68,29 @@ export async function saveProfile(input: {
         set: { username: parsed.data.username },
       });
 
-    const desiredGenres = parsed.data.genres;
-    if (desiredGenres.length) {
+    if (allowedGenres.length) {
       await db
         .insert(userGenres)
-        .values(desiredGenres.map((g) => ({ userId: user.id, genre: g })))
+        .values(allowedGenres.map((g) => ({ userId: user.id, genre: g })))
         .onConflictDoNothing();
       await db
         .delete(userGenres)
-        .where(and(eq(userGenres.userId, user.id), notInArray(userGenres.genre, desiredGenres)));
+        .where(and(eq(userGenres.userId, user.id), notInArray(userGenres.genre, allowedGenres)));
     } else {
       await db.delete(userGenres).where(eq(userGenres.userId, user.id));
     }
 
-    const desiredPlaystyles = parsed.data.playstyles;
-    if (desiredPlaystyles.length) {
+    if (cleanedPlaystyles.length) {
       await db
         .insert(userPlaystyles)
-        .values(desiredPlaystyles.map((p) => ({ userId: user.id, playstyle: p })))
+        .values(cleanedPlaystyles.map((p) => ({ userId: user.id, playstyle: p })))
         .onConflictDoNothing();
       await db
         .delete(userPlaystyles)
         .where(
           and(
             eq(userPlaystyles.userId, user.id),
-            notInArray(userPlaystyles.playstyle, desiredPlaystyles),
+            notInArray(userPlaystyles.playstyle, cleanedPlaystyles),
           ),
         );
     } else {
@@ -79,4 +104,16 @@ export async function saveProfile(input: {
   revalidatePath("/profile");
   revalidatePath("/recommendations");
   return { ok: true as const };
+}
+
+function dedupeCaseInsensitive(tags: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of tags) {
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  return out;
 }

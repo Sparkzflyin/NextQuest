@@ -7,6 +7,8 @@ alter table public.reviews       enable row level security;
 alter table public.votes         enable row level security;
 alter table public.user_genres   enable row level security;
 alter table public.user_playstyles enable row level security;
+alter table public.canonical_genres enable row level security;
+alter table public.canonical_playstyles enable row level security;
 
 -- profiles: anyone can read, only the owner can write their own row.
 drop policy if exists "profiles_read_all"     on public.profiles;
@@ -59,6 +61,13 @@ drop policy if exists "user_playstyles_write_self" on public.user_playstyles;
 create policy "user_playstyles_read_all"   on public.user_playstyles for select using (true);
 create policy "user_playstyles_write_self" on public.user_playstyles for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- canonical_{genres,playstyles}: read all; writes happen via server actions (service role)
+-- only — RAWG auto-promote in logGame, threshold-promote in approveReview.
+drop policy if exists "canonical_genres_read_all"     on public.canonical_genres;
+drop policy if exists "canonical_playstyles_read_all" on public.canonical_playstyles;
+create policy "canonical_genres_read_all"     on public.canonical_genres     for select using (true);
+create policy "canonical_playstyles_read_all" on public.canonical_playstyles for select using (true);
 
 -- Create a profile row whenever a new auth user signs up.
 -- Username defaults to the part before @ in their email; user can rename in /profile.

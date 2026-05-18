@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { and, count, eq } from "drizzle-orm";
-import { GENRES } from "@/lib/constants";
+import { and, asc, count, eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { reviews, votes } from "@/lib/db/schema";
+import { canonicalGenres, reviews, votes } from "@/lib/db/schema";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -24,6 +23,11 @@ export default async function Home() {
     score = (r?.n ?? 0) + (v?.n ?? 0);
   }
   const scoreLabel = score.toString().padStart(4, "0");
+
+  const genreRows = await db
+    .select({ name: canonicalGenres.name })
+    .from(canonicalGenres)
+    .orderBy(asc(canonicalGenres.name));
 
   return (
     <>
@@ -232,7 +236,7 @@ export default async function Home() {
           </header>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {GENRES.map((g, i) => {
+            {genreRows.map(({ name: g }, i) => {
               const num = String(i + 1).padStart(2, "0");
               return (
                 <Link

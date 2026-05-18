@@ -97,3 +97,13 @@ export const userPlaystyles = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.playstyle] })],
 );
+
+export const canonicalGenres = pgTable("canonical_genres", {
+  name: text("name").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const canonicalPlaystyles = pgTable("canonical_playstyles", {
+  name: text("name").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

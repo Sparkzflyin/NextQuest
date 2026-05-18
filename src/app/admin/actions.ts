@@ -2,12 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { profiles, reviews } from "@/lib/db/schema";
 
 const schema = z.object({ reviewId: z.string().uuid() });
+
+// Path 3 promotion threshold: a custom playstyle becomes canonical once it
+// appears on this many approved reviews. Tweak if the curve feels wrong.
+const PLAYSTYLE_PROMOTION_THRESHOLD = 5;
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -36,9 +40,26 @@ export async function approveReview(input: z.input<typeof schema>) {
     .returning({ gameId: reviews.gameId });
 
   if (row) {
+    // Promote any playstyle that's now on ≥ threshold approved reviews into the
+    // canonical list. Idempotent — no-ops for tags already promoted.
+    await db.execute(sql`
+      insert into public.canonical_playstyles (name)
+      select tag
+      from (
+        select unnest(playstyle) as tag, count(*) as n
+        from public.reviews
+        where status = 'approved'
+        group by tag
+      ) c
+      where c.n >= ${PLAYSTYLE_PROMOTION_THRESHOLD}
+      on conflict (name) do nothing
+    `);
+
     revalidatePath("/admin");
     revalidatePath(`/games/${row.gameId}`);
     revalidatePath("/");
+    revalidatePath("/log");
+    revalidatePath("/profile");
   }
   return { ok: true as const };
 }
