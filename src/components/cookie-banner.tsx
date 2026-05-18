@@ -9,11 +9,16 @@ export function CookieBanner() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(STORAGE_KEY)) setShow(true);
-    } catch {
-      // localStorage unavailable (private mode, etc) — just don't pester them.
-    }
+    const sync = () => {
+      try {
+        setShow(!localStorage.getItem(STORAGE_KEY));
+      } catch {
+        // localStorage unavailable (private mode, etc) — just don't pester them.
+      }
+    };
+    sync();
+    window.addEventListener("nq:consent", sync);
+    return () => window.removeEventListener("nq:consent", sync);
   }, []);
 
   function decide(choice: "accepted" | "declined") {
