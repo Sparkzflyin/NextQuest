@@ -40,6 +40,7 @@ export function MobileNav({ signedIn, isAdmin }: Props) {
           />
           <div className="absolute inset-x-0 top-full z-40 border-b-2 border-violet-900/70 bg-[#06070d]/95 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur">
             <nav className="flex flex-col gap-1 px-4 py-3">
+              <MobileLink href="/">Home</MobileLink>
               <MobileLink href="/leaderboards">Leaderboards</MobileLink>
               {signedIn ? (
                 <>
