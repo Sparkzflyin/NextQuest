@@ -31,7 +31,6 @@ export default async function Home() {
       <div className="pointer-events-none fixed inset-0 z-50">
         <div className="crt-scanlines" />
         <div className="crt-vignette" />
-        <div className="crt-flicker" />
       </div>
 
       <div className="relative left-1/2 -my-8 w-screen -translate-x-1/2 overflow-hidden">

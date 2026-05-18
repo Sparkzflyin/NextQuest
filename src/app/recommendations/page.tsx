@@ -11,17 +11,24 @@ export default async function RecommendationsPage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Score = (genre overlap with user's favorites) * 3
-  //       + (trait overlap with games user rated >= 8) * 2
-  //       + net community score
+  // match_score =
+  //   (favorite genres ∩ game.genres) * 3                       -- explicit
+  // + (favorite playstyles ∩ game's review playstyles) * 3       -- explicit
+  // + (loved-games genres ∩ game.genres) * 2                     -- inferred
+  // + (loved-games playstyles ∩ game's review playstyles) * 2    -- inferred
+  // + (loved-games RAWG tags ∩ game.tags) * 1
+  // + community score
   // Exclude games already reviewed by this user.
   const rows = await db.execute(sql`
     with
       fav_genres as (
         select genre from public.user_genres where user_id = ${user.id}
       ),
+      fav_playstyles as (
+        select playstyle from public.user_playstyles where user_id = ${user.id}
+      ),
       loved as (
-        select g.genres, g.tags
+        select g.id as game_id, g.genres, g.tags
         from public.reviews r
         join public.games g on g.id = r.game_id
         where r.user_id = ${user.id} and r.rating >= 8
@@ -31,6 +38,19 @@ export default async function RecommendationsPage() {
       ),
       loved_genres as (
         select distinct unnest(genres) as genre from loved
+      ),
+      loved_playstyles as (
+        select distinct unnest(r.playstyle) as playstyle
+        from public.reviews r
+        join loved l on l.game_id = r.game_id
+        where r.status = 'approved'
+      ),
+      game_playstyles as (
+        select r.game_id, array_agg(distinct ps) as playstyles
+        from public.reviews r,
+             lateral unnest(r.playstyle) as ps
+        where r.status = 'approved'
+        group by r.game_id
       ),
       reviewed as (
         select game_id from public.reviews where user_id = ${user.id}
@@ -45,12 +65,15 @@ export default async function RecommendationsPage() {
       coalesce(t.score, 0) as community_score,
       (
         coalesce(cardinality(array(select unnest(g.genres) intersect select genre from fav_genres)), 0) * 3
+        + coalesce(cardinality(array(select unnest(coalesce(gp.playstyles, '{}'::text[])) intersect select playstyle from fav_playstyles)), 0) * 3
         + coalesce(cardinality(array(select unnest(g.genres) intersect select genre from loved_genres)), 0) * 2
+        + coalesce(cardinality(array(select unnest(coalesce(gp.playstyles, '{}'::text[])) intersect select playstyle from loved_playstyles)), 0) * 2
         + coalesce(cardinality(array(select unnest(g.tags)   intersect select tag   from loved_tags)),   0)
         + coalesce(t.score, 0)
       )::int as match_score
     from public.games g
     left join tallies t on t.game_id = g.id
+    left join game_playstyles gp on gp.game_id = g.id
     where g.id not in (select game_id from reviewed)
     order by match_score desc, community_score desc
     limit 24

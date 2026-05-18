@@ -10,26 +10,35 @@ import { cn } from "@/lib/utils";
 export function ProfileForm({
   initialUsername,
   initialGenres,
+  initialPlaystyles,
   allGenres,
+  allPlaystyles,
 }: {
   initialUsername: string;
   initialGenres: string[];
+  initialPlaystyles: string[];
   allGenres: string[];
+  allPlaystyles: string[];
 }) {
   const [username, setUsername] = useState(initialUsername);
   const [genres, setGenres] = useState<string[]>(initialGenres);
+  const [playstyles, setPlaystyles] = useState<string[]>(initialPlaystyles);
   const [status, setStatus] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [pending, start] = useTransition();
 
-  function toggle(g: string) {
+  function toggleGenre(g: string) {
     setGenres((cur) => (cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g]));
+  }
+
+  function togglePlaystyle(p: string) {
+    setPlaystyles((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus(null);
     start(async () => {
-      const result = await saveProfile({ username, genres });
+      const result = await saveProfile({ username, genres, playstyles });
       setStatus(
         result.ok
           ? { kind: "ok", msg: "Saved." }
@@ -65,7 +74,7 @@ export function ProfileForm({
               <button
                 type="button"
                 key={g}
-                onClick={() => toggle(g)}
+                onClick={() => toggleGenre(g)}
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-sm transition-colors",
                   active
@@ -74,6 +83,33 @@ export function ProfileForm({
                 )}
               >
                 {g}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label>Favorite playstyles</Label>
+        <p className="text-sm text-neutral-400">
+          How do you like to play? We&apos;ll match games whose reviewers tagged the same things.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {allPlaystyles.map((p) => {
+            const active = playstyles.includes(p);
+            return (
+              <button
+                type="button"
+                key={p}
+                onClick={() => togglePlaystyle(p)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                  active
+                    ? "border-violet-500 bg-violet-600/20 text-violet-200"
+                    : "border-neutral-700 text-neutral-300 hover:border-neutral-500",
+                )}
+              >
+                {p}
               </button>
             );
           })}

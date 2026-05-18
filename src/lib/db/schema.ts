@@ -88,3 +88,12 @@ export const userGenres = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.genre] })],
 );
+
+export const userPlaystyles = pgTable(
+  "user_playstyles",
+  {
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    playstyle: text("playstyle").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.playstyle] })],
+);

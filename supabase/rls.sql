@@ -6,6 +6,7 @@ alter table public.games         enable row level security;
 alter table public.reviews       enable row level security;
 alter table public.votes         enable row level security;
 alter table public.user_genres   enable row level security;
+alter table public.user_playstyles enable row level security;
 
 -- profiles: anyone can read, only the owner can write their own row.
 drop policy if exists "profiles_read_all"     on public.profiles;
@@ -50,6 +51,13 @@ drop policy if exists "user_genres_read_all"   on public.user_genres;
 drop policy if exists "user_genres_write_self" on public.user_genres;
 create policy "user_genres_read_all"   on public.user_genres for select using (true);
 create policy "user_genres_write_self" on public.user_genres for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- user_playstyles: read all, write own (same pattern as user_genres).
+drop policy if exists "user_playstyles_read_all"   on public.user_playstyles;
+drop policy if exists "user_playstyles_write_self" on public.user_playstyles;
+create policy "user_playstyles_read_all"   on public.user_playstyles for select using (true);
+create policy "user_playstyles_write_self" on public.user_playstyles for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Create a profile row whenever a new auth user signs up.

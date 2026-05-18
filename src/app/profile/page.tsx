@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { profiles, userGenres } from "@/lib/db/schema";
+import { profiles, userGenres, userPlaystyles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { GENRES } from "@/lib/constants";
+import { GENRES, PLAYSTYLES } from "@/lib/constants";
 import { ProfileForm } from "./profile-form";
 
 export default async function ProfilePage() {
@@ -13,7 +13,11 @@ export default async function ProfilePage() {
   if (!user) return null;
 
   const [profile] = await db.select().from(profiles).where(eq(profiles.id, user.id));
-  const picked = await db.select().from(userGenres).where(eq(userGenres.userId, user.id));
+  const pickedGenres = await db.select().from(userGenres).where(eq(userGenres.userId, user.id));
+  const pickedPlaystyles = await db
+    .select()
+    .from(userPlaystyles)
+    .where(eq(userPlaystyles.userId, user.id));
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-8">
@@ -23,8 +27,10 @@ export default async function ProfilePage() {
       </div>
       <ProfileForm
         initialUsername={profile?.username ?? ""}
-        initialGenres={picked.map((g) => g.genre)}
+        initialGenres={pickedGenres.map((g) => g.genre)}
+        initialPlaystyles={pickedPlaystyles.map((p) => p.playstyle)}
         allGenres={[...GENRES]}
+        allPlaystyles={[...PLAYSTYLES]}
       />
     </div>
   );
