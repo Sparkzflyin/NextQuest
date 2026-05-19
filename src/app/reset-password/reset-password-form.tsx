@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { notifyPasswordChange } from "../profile/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,11 +36,16 @@ export function ResetPasswordForm() {
     setStatus(null);
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password: pwd });
-    setPending(false);
     if (error) {
+      setPending(false);
       setStatus({ kind: "err", msg: error.message });
       return;
     }
+    // Reset is itself a password change — notify the email-on-file too.
+    notifyPasswordChange().catch((e) =>
+      console.error("password change notification failed:", e),
+    );
+    setPending(false);
     setStatus({ kind: "ok", msg: "Password updated. Redirecting…" });
     setTimeout(() => {
       router.refresh();

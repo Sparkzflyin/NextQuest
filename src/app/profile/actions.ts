@@ -17,6 +17,7 @@ import {
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { fetchGame } from "@/lib/rawg";
 import { sanitizeTag } from "@/lib/tags";
+import { getResend, emailFrom } from "@/lib/email";
 
 const schema = z.object({
   username: z
@@ -181,6 +182,51 @@ export async function addCurrentlyPlaying(input: z.input<typeof addCurrentlySche
   }
 
   revalidatePath("/profile");
+  return { ok: true as const };
+}
+
+// Defense-in-depth notification: after a password change succeeds (whether via
+// the authenticated change flow OR a reset link), email the user-on-file so a
+// password-only attacker can't silently rotate the password without the owner
+// noticing. Fire-and-forget from the caller — email failures don't undo the
+// password change.
+export async function notifyPasswordChange() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { ok: false as const, error: "Not signed in." };
+
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[notifyPasswordChange] RESEND_API_KEY not set — skipping email.");
+    return { ok: false as const, error: "Email not configured." };
+  }
+
+  const when = new Date().toUTCString();
+  const { error } = await resend.emails.send({
+    from: emailFrom(),
+    to: user.email,
+    subject: "Your NextQuest password was changed",
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:520px;line-height:1.5;color:#111">
+        <h2 style="margin:0 0 12px">Password changed</h2>
+        <p>Your NextQuest password was just changed on <strong>${when}</strong>.</p>
+        <p>If this was you, no action is needed.</p>
+        <p><strong>If you don't recognize this change</strong>, your account may be compromised.
+          Reset your password right away at
+          <a href="https://nextquests.com/forgot-password">nextquests.com/forgot-password</a>
+          — the reset link goes to this inbox, so an attacker can't lock you out as long as
+          you control this email address.</p>
+        <p style="color:#777;font-size:12px;margin-top:24px">You're receiving this because your password just changed on an account registered to ${user.email}.</p>
+      </div>
+    `,
+    text: `Your NextQuest password was just changed on ${when}. If this wasn't you, reset it at https://nextquests.com/forgot-password — the reset link will come to this inbox.`,
+  });
+  if (error) {
+    console.error("[notifyPasswordChange] resend error:", error);
+    return { ok: false as const, error: error.message };
+  }
   return { ok: true as const };
 }
 

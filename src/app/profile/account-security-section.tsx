@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyPasswordChange } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,11 +249,20 @@ function PasswordRow({
 
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password: pwd });
-    setPending(false);
     if (error) {
+      setPending(false);
       setStatus({ kind: "err", msg: error.message });
       return;
     }
+    // Fire-and-forget — the change itself succeeded, so don't gate the UI on
+    // an email round-trip. Only on actual changes (not first-time set); a
+    // Google-only user adding their first password doesn't need an alert.
+    if (hasPassword) {
+      notifyPasswordChange().catch((e) =>
+        console.error("password change notification failed:", e),
+      );
+    }
+    setPending(false);
     setStatus({
       kind: "ok",
       msg: hasPassword ? "Password updated." : "Password set. You can now sign in with email too.",
