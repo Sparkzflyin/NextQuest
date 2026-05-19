@@ -26,10 +26,9 @@ export function pwaIconElement({
         background: "#06070d",
         color: "#f5d0fe",
         fontWeight: 900,
-        letterSpacing: `${-Math.round(size * 0.033)}px`,
-        border: borderWidth ? `${borderWidth}px solid #c084fc` : undefined,
-        padding: safePad ? `${safePad}px` : undefined,
-        boxSizing: "border-box",
+        letterSpacing: `-${Math.round(size * 0.033)}px`,
+        border: `${borderWidth}px solid ${borderWidth ? "#c084fc" : "transparent"}`,
+        padding: `${safePad}px`,
       }}
     >
       <div
@@ -49,7 +48,7 @@ export function pwaIconElement({
             alignItems: "center",
             gap: Math.round(size * 0.016),
             fontSize: subtitleSize,
-            letterSpacing: Math.round(size * 0.006),
+            letterSpacing: `${Math.round(size * 0.006)}px`,
             color: "#22d3ee",
             marginTop: subtitleGap,
           }}
@@ -58,8 +57,8 @@ export function pwaIconElement({
             style={{
               width: 0,
               height: 0,
-              borderTop: `${triH / 2}px solid transparent`,
-              borderBottom: `${triH / 2}px solid transparent`,
+              borderTop: `${Math.round(triH / 2)}px solid transparent`,
+              borderBottom: `${Math.round(triH / 2)}px solid transparent`,
               borderLeft: `${triW}px solid #22d3ee`,
               display: "flex",
             }}
