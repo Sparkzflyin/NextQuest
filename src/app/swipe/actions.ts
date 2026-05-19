@@ -101,11 +101,19 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not signed in.", cards: [] };
 
-  const local: RecommendationRow[] = await loadLocalRecommendations(
+  // Pull a wider pool than we need and shuffle so the deck rotates picks from
+  // the user's top-matched tier instead of always serving the same top-N.
+  // Combined with excludeSwiped this is what makes the Refresh button useful.
+  const pool: RecommendationRow[] = await loadLocalRecommendations(
     user.id,
-    parsed.data.count,
-    { excludeRecentSwipes: true },
+    parsed.data.count * 2,
+    { excludeSwiped: true },
   );
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const local = pool.slice(0, parsed.data.count);
 
   const cards: SwipeCard[] = local.map((g) => ({
     rawgId: g.rawg_id,
@@ -127,10 +135,18 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
       .where(eq(userGenres.userId, user.id));
     const favGenres = favRows.map((r) => r.name);
     if (favGenres.length) {
+      // Pull every rawg_id the user has already swiped on so the RAWG
+      // fallback never recycles a previously-shown card. Without this the
+      // local CTE filters but RAWG happily hands back duplicates.
+      const priorSwipes = await db
+        .select({ rawgId: swipes.rawgId })
+        .from(swipes)
+        .where(eq(swipes.userId, user.id));
+      const swipedIds = priorSwipes.map((r) => r.rawgId);
       try {
         const raw = await browseByGenres({
           genreNames: favGenres,
-          excludeIds: cards.map((c) => c.rawgId),
+          excludeIds: [...cards.map((c) => c.rawgId), ...swipedIds],
           limit: needed * 2,
         });
         for (const g of raw) {

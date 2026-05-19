@@ -53,17 +53,16 @@ function toStringArray(value: unknown): string[] {
 }
 
 // Local-catalog recommendations, ranked by the same match_score the FYP page
-// uses. excludeRecentSwipes=true filters out anything the user has swiped in
-// the last 7 days so the deck doesn't repeat itself.
+// uses. excludeSwiped=true drops anything the user has ever swiped on so the
+// feed never resurfaces a game they already responded to.
 export async function loadLocalRecommendations(
   userId: string,
   limit: number,
-  opts: { excludeRecentSwipes?: boolean } = {},
+  opts: { excludeSwiped?: boolean } = {},
 ): Promise<RecommendationRow[]> {
-  const swipeFilter = opts.excludeRecentSwipes
+  const swipeFilter = opts.excludeSwiped
     ? sql`and g.rawg_id not in (
-        select rawg_id from public.swipes
-        where user_id = ${userId} and swiped_at >= now() - interval '7 days'
+        select rawg_id from public.swipes where user_id = ${userId}
       )`
     : sql``;
 

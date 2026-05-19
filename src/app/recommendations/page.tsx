@@ -2,6 +2,7 @@ import Link from "next/link";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  swipes,
   userExcludedGames,
   userExcludedGenres,
   userGenres,
@@ -12,9 +13,27 @@ import { browseByGenres, browseUpcomingByGenres } from "@/lib/rawg";
 import { loadLocalRecommendations } from "@/lib/recommendations";
 import { Card } from "@/components/ui/card";
 import { CardActions } from "./card-actions";
+import { RefreshFeedButton } from "./refresh-button";
 
 const TARGET_RESULTS = 24;
 const UPCOMING_LIMIT = 6;
+// Over-fetch the local pool so that on each refresh we get a fresh shuffle
+// from the user's top-matched candidates instead of the same deterministic
+// top-N. The dedupe (excludeSwiped) still narrows future fetches to truly
+// new picks once the user has acted on a card.
+const LOCAL_POOL_MULTIPLIER = 2;
+
+// In-place Fisher–Yates. We shuffle the local pool then slice to TARGET so the
+// most-relevant tier rotates between visits without surfacing low-match items.
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export const dynamic = "force-dynamic";
 
 export default async function RecommendationsPage() {
   const supabase = await createClient();
@@ -25,7 +44,15 @@ export default async function RecommendationsPage() {
 
   // Ranking happens in loadLocalRecommendations (shared with /swipe). Helper
   // normalizes Postgres text[] columns into real JS string arrays.
-  const localRecs = await loadLocalRecommendations(user.id, TARGET_RESULTS);
+  // Pull a larger pool so the refresh button rotates the visible 24 across
+  // the user's top-tier matches. excludeSwiped drops anything they've ever
+  // swiped on so the feed never recycles past responses.
+  const localPool = await loadLocalRecommendations(
+    user.id,
+    TARGET_RESULTS * LOCAL_POOL_MULTIPLIER,
+    { excludeSwiped: true },
+  );
+  const localRecs = shuffleInPlace([...localPool]).slice(0, TARGET_RESULTS);
 
   // RAWG fallback: when the local catalog can't fill the page, query RAWG by
   // the user's favorite genres. Playstyles don't apply here (different vocab).
@@ -47,9 +74,16 @@ export default async function RecommendationsPage() {
     .select({ rawgId: userWishlist.rawgId })
     .from(userWishlist)
     .where(eq(userWishlist.userId, user.id));
+  // Every rawg_id the user has ever swiped on (any direction) — used to keep
+  // the RAWG fallback from resurfacing games the swipe deck already showed.
+  const swipedRows = await db
+    .select({ rawgId: swipes.rawgId })
+    .from(swipes)
+    .where(eq(swipes.userId, user.id));
   const excludedGenreSet = new Set(excludedGenreRows.map((r) => r.name.toLowerCase()));
   const excludedRawgSet = new Set(excludedGameRows.map((r) => r.rawgId));
   const wishlistSet = new Set(wishlistRows.map((r) => r.rawgId));
+  const swipedSet = new Set(swipedRows.map((r) => r.rawgId));
   const favGenres = favGenreRows
     .map((r) => r.name)
     .filter((g) => !excludedGenreSet.has(g.toLowerCase()));
@@ -71,9 +105,17 @@ export default async function RecommendationsPage() {
       where r.user_id = ${user.id}
     `);
     const excludeIds = [
-      ...localRecs.map((r) => r.rawg_id),
+      // Already chosen for this page render
+      ...localPool.map((r) => r.rawg_id),
+      // Reviewed by the user (any rating)
       ...(reviewed as unknown as { rawg_id: number }[]).map((r) => r.rawg_id),
+      // Permanent hides via the × button
       ...excludedGameRows.map((r) => r.rawgId),
+      // Anything the user already swiped on — keeps the RAWG fallback in sync
+      // with the swipe-deck dedupe so nothing gets recycled here.
+      ...swipedRows.map((r) => r.rawgId),
+      // Already on their wishlist — no point re-suggesting it
+      ...wishlistRows.map((r) => r.rawgId),
     ];
     try {
       // Ask RAWG for a few extra so we can post-filter excluded genres without
@@ -88,7 +130,9 @@ export default async function RecommendationsPage() {
         .filter(
           (g) =>
             !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
-            !excludedRawgSet.has(g.rawgId),
+            !excludedRawgSet.has(g.rawgId) &&
+            !swipedSet.has(g.rawgId) &&
+            !wishlistSet.has(g.rawgId),
         )
         .slice(0, fillNeeded);
     } catch {
@@ -104,14 +148,16 @@ export default async function RecommendationsPage() {
     try {
       const raw = await browseUpcomingByGenres({
         genreNames: favGenres,
-        excludeIds: [...excludedRawgSet],
+        // Don't bother RAWG with games we'd just filter out client-side.
+        excludeIds: [...excludedRawgSet, ...swipedSet],
         limit: UPCOMING_LIMIT * 2,
       });
       upcoming = raw
         .filter(
           (g) =>
             !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
-            !excludedRawgSet.has(g.rawgId),
+            !excludedRawgSet.has(g.rawgId) &&
+            !swipedSet.has(g.rawgId),
         )
         .slice(0, UPCOMING_LIMIT);
     } catch {
@@ -123,16 +169,21 @@ export default async function RecommendationsPage() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="text-3xl font-bold">For you</h1>
-        <p className="text-sm text-neutral-400">
-          Picked from your favorite genres and the traits of games you&apos;ve rated highly. The{" "}
-          <span className="font-pixel text-[10px] tracking-widest text-neon-cyan">RAWG</span>{" "}
-          badge means it&apos;s a catalog match nobody&apos;s logged yet — click to log it and pull
-          it into the community board. Hit{" "}
-          <span className="text-rose-400">♥</span> to wishlist or{" "}
-          <span className="text-red-400">×</span> to hide.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">For you</h1>
+          <p className="text-sm text-neutral-400">
+            Picked from your favorite genres and the traits of games you&apos;ve rated highly. The{" "}
+            <span className="font-pixel text-[10px] tracking-widest text-neon-cyan">RAWG</span>{" "}
+            badge means it&apos;s a catalog match nobody&apos;s logged yet — click to log it and pull
+            it into the community board. Hit{" "}
+            <span className="text-rose-400">♥</span> to wishlist or{" "}
+            <span className="text-red-400">×</span> to hide.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <RefreshFeedButton />
+        </div>
       </div>
       {!hasAny ? (
         <Card>
@@ -152,7 +203,11 @@ export default async function RecommendationsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {localRecs.map((g) => (
             <div key={`local-${g.id}`} className="relative">
-              <CardActions rawgId={g.rawg_id} initialWishlisted={wishlistSet.has(g.rawg_id)} />
+              <CardActions
+                rawgId={g.rawg_id}
+                title={g.title}
+                initialWishlisted={wishlistSet.has(g.rawg_id)}
+              />
               <Link href={`/games/${g.id}`}>
                 <Card className="relative h-full hover:border-violet-500">
                   {g.cover_url && (
@@ -179,7 +234,11 @@ export default async function RecommendationsPage() {
           ))}
           {rawgFill.map((g) => (
             <div key={`rawg-${g.rawgId}`} className="relative">
-              <CardActions rawgId={g.rawgId} initialWishlisted={wishlistSet.has(g.rawgId)} />
+              <CardActions
+                rawgId={g.rawgId}
+                title={g.title}
+                initialWishlisted={wishlistSet.has(g.rawgId)}
+              />
               <Link
                 href={`/log?rawgId=${g.rawgId}`}
                 title="Log this game to add it to the community board"
@@ -221,7 +280,11 @@ export default async function RecommendationsPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcoming.map((g) => (
               <div key={`upcoming-${g.rawgId}`} className="relative">
-                <CardActions rawgId={g.rawgId} initialWishlisted={wishlistSet.has(g.rawgId)} />
+                <CardActions
+                  rawgId={g.rawgId}
+                  title={g.title}
+                  initialWishlisted={wishlistSet.has(g.rawgId)}
+                />
                 <Link
                   href={`/log?rawgId=${g.rawgId}`}
                   title="Log this when you play it"

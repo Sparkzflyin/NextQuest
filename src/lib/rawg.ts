@@ -8,6 +8,8 @@ type RawgGame = {
   background_image: string | null;
   genres: { id: number; name: string; slug: string }[];
   tags?: { id: number; name: string; slug: string }[];
+  // Only present on the single-game detail endpoint, not on list endpoints.
+  description_raw?: string;
 };
 
 function key() {
@@ -133,5 +135,6 @@ export async function fetchGame(rawgId: number) {
     released: g.released,
     genres: g.genres.map((x) => x.name),
     tags: (g.tags ?? []).slice(0, 20).map((x) => x.name),
+    description: g.description_raw ?? null,
   };
 }

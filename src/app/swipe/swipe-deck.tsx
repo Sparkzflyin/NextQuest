@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowDown, Check, Heart, X } from "lucide-react";
+import { ArrowDown, Check, Heart, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GameInfoButton } from "@/components/game-info-button";
 import { cn } from "@/lib/utils";
 import { fetchSwipeQueue, recordSwipe, type SwipeCard } from "./actions";
 
@@ -24,6 +25,14 @@ const SWIPE_THRESHOLD = 90;
 // background so the user doesn't see a "queue empty" flash.
 const REFETCH_AT = 3;
 const REFETCH_BATCH = 10;
+// Card-flight timings. EXIT_MS is also the JS slice timer, so we can't have
+// the CSS transition outlast the DOM update or the new top will inherit a
+// stale transition mid-flight.
+const EXIT_MS = 260;
+const SPRING_MS = 180;
+// Snappy custom curve — accelerates fast, eases out long enough that the
+// flight reads as deliberate instead of disappearing.
+const EXIT_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 export function SwipeDeck({
   initialCards,
@@ -69,6 +78,23 @@ export function SwipeDeck({
     }
   }, []);
 
+  // User-initiated "give me a different set" — clears the visible deck and
+  // pulls a fresh batch. The server-side shuffle + dedupe means the new batch
+  // is genuinely different, not just a re-render of the same top-N.
+  const replaceDeck = useCallback(async () => {
+    if (refetchInFlight.current) return;
+    refetchInFlight.current = true;
+    setRefetching(true);
+    setCards([]);
+    try {
+      const result = await fetchSwipeQueue({ count: REFETCH_BATCH });
+      if (result.ok) setCards(result.cards);
+    } finally {
+      refetchInFlight.current = false;
+      setRefetching(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (cards.length <= REFETCH_AT) {
       void refetch();
@@ -79,23 +105,29 @@ export function SwipeDeck({
     (direction: Direction) => {
       if (!top) return;
       const action = DIRECTION_TO_ACTION[direction];
+      const card = top;
       setExiting(direction);
+
+      // Visual: swap to the next card on a fixed timer so the animation isn't
+      // gated by network latency. Anything longer than EXIT_MS would be the
+      // user staring at a card that has already flown off-screen.
+      window.setTimeout(() => {
+        setCards((cur) => cur.slice(1));
+        setDragX(0);
+        setDragY(0);
+        setExiting(null);
+      }, EXIT_MS);
+
+      // Network in the background — UI doesn't wait.
       start(async () => {
         const res = await recordSwipe({
-          rawgId: top.rawgId,
-          gameId: top.gameId,
+          rawgId: card.rawgId,
+          gameId: card.gameId,
           action,
         });
         if (res.ok && action !== "skip") {
           setRemaining(Math.max(0, (res.dailyCap ?? 0) - (res.creditsUsedToday ?? 0)));
         }
-        // Animate out for ~180ms, then drop the top card.
-        setTimeout(() => {
-          setCards((cur) => cur.slice(1));
-          setDragX(0);
-          setDragY(0);
-          setExiting(null);
-        }, 180);
       });
     },
     [top],
@@ -161,15 +193,19 @@ export function SwipeDeck({
   }
 
   // Compute live transform for the top card. Exit animation overrides drag.
+  // Keep the function list (translate→rotate→scale) identical across every
+  // state so CSS can interpolate smoothly — a mismatch in shape forces a
+  // discrete swap and the animation jumps.
   const exitTransform = (() => {
     if (!exiting) return null;
-    const off = 600;
-    if (exiting === "right") return `translate(${off}px, 0) rotate(20deg)`;
-    if (exiting === "left") return `translate(-${off}px, 0) rotate(-20deg)`;
-    if (exiting === "up") return `translate(0, -${off}px)`;
-    return `translate(0, ${off}px)`;
+    // Use viewport units so the card always clears the screen — 600px wasn't
+    // enough on big monitors and was excessive on small phones.
+    if (exiting === "right") return "translate(120vw, 0) rotate(24deg) scale(1)";
+    if (exiting === "left") return "translate(-120vw, 0) rotate(-24deg) scale(1)";
+    if (exiting === "up") return "translate(0, -120vh) rotate(0deg) scale(1)";
+    return "translate(0, 120vh) rotate(0deg) scale(1)";
   })();
-  const liveTransform = `translate(${dragX}px, ${dragY}px) rotate(${dragX * 0.05}deg)`;
+  const liveTransform = `translate(${dragX}px, ${dragY}px) rotate(${dragX * 0.05}deg) scale(1)`;
   const transform = exitTransform ?? liveTransform;
 
   // Direction overlay (Like/Hide/Wishlist/Skip) shown as user drags past a
@@ -189,21 +225,45 @@ export function SwipeDeck({
   return (
     <div className="space-y-4">
       <div className="relative h-[460px] select-none">
-        {/* Peek of next card behind the top card */}
+        {/* Peek behind top. Rendered FIRST so the top card's DOM order puts
+            it above. Keyed by rawgId so React reconciles by card identity,
+            not slot — when the array shifts, the peek's DOM node stays
+            mounted and inherits the new "top" styles smoothly instead of
+            unmounting and snapping the next card into place. */}
         {next && (
-          <SwipeCardView card={next} className="absolute inset-0 scale-[0.96] opacity-60" />
+          <SwipeCardView
+            key={next.rawgId}
+            card={next}
+            style={{
+              // During exit, animate up to the top card's footprint so by the
+              // time the slice fires there's no visual jump.
+              transform: exiting
+                ? "translate(0, 0) rotate(0deg) scale(1)"
+                : "translate(0, 0) rotate(0deg) scale(0.96)",
+              opacity: exiting ? 1 : 0.6,
+              transition: `transform ${EXIT_MS}ms ${EXIT_EASE}, opacity ${EXIT_MS}ms ease-out`,
+            }}
+            className="absolute inset-0"
+          />
         )}
         <SwipeCardView
+          key={top.rawgId}
           card={top}
+          interactive
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           style={{
             transform,
-            // Transition only when *not* live-dragging — so snap-back and exit
-            // animate, but the live drag follows the pointer 1:1.
-            transition: dragging ? "none" : "transform 180ms ease-out",
+            // Fade out while flying so the disappearance feels graceful
+            // rather than a teleport at the end of the translate.
+            opacity: exiting ? 0 : 1,
+            transition: dragging
+              ? "none"
+              : exiting
+                ? `transform ${EXIT_MS}ms ${EXIT_EASE}, opacity ${EXIT_MS - 40}ms ease-out`
+                : `transform ${SPRING_MS}ms ease-out`,
             touchAction: "none",
           }}
           className="absolute inset-0 cursor-grab active:cursor-grabbing"
@@ -226,11 +286,26 @@ export function SwipeDeck({
         </ActionBtn>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-neutral-500">
+      <div className="flex items-center justify-between gap-3 text-xs text-neutral-500">
         <span>
           {cards.length} card{cards.length === 1 ? "" : "s"} left
           {refetching && " · refilling…"}
         </span>
+        <button
+          type="button"
+          onClick={() => void replaceDeck()}
+          disabled={refetching}
+          className={cn(
+            "font-pixel inline-flex items-center gap-1.5 border border-violet-800/60 px-2.5 py-1.5 text-[9px] tracking-widest text-violet-200",
+            "transition-colors hover:border-neon-violet hover:bg-violet-950/40 hover:text-violet-50",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+          )}
+          aria-label="Refresh deck"
+          title="Pull a fresh set of cards"
+        >
+          <RefreshCw className={cn("h-3 w-3", refetching && "animate-spin")} />
+          REFRESH
+        </button>
         <span>
           {remaining > 0
             ? `${remaining} credit swipe${remaining === 1 ? "" : "s"} today`
@@ -246,6 +321,7 @@ function SwipeCardView({
   reveal,
   className,
   style,
+  interactive,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -255,6 +331,9 @@ function SwipeCardView({
   reveal?: { label: string; color: string } | null;
   className?: string;
   style?: React.CSSProperties;
+  // Only the top card is interactive; the peek card behind is decorative and
+  // shouldn't show the info button (would tap through to nothing visible).
+  interactive?: boolean;
   onPointerDown?: (e: React.PointerEvent) => void;
   onPointerMove?: (e: React.PointerEvent) => void;
   onPointerUp?: (e: React.PointerEvent) => void;
@@ -279,6 +358,11 @@ function SwipeCardView({
         ) : (
           <div className="flex h-full w-full items-center justify-center text-neutral-700">
             no cover
+          </div>
+        )}
+        {interactive && (
+          <div className="absolute right-2 top-2 z-20">
+            <GameInfoButton rawgId={card.rawgId} title={card.title} />
           </div>
         )}
         {reveal && (

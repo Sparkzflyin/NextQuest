@@ -33,6 +33,10 @@ export const games = pgTable(
     released: text("released"),
     genres: text("genres").array().notNull().default(sql`'{}'::text[]`),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    // RAWG plain-text description, lazy-cached on first info-button open.
+    // Nullable so existing rows don't need a backfill — null just means
+    // "fetch from RAWG next time someone asks".
+    description: text("description"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("games_genres_gin").using("gin", t.genres)],

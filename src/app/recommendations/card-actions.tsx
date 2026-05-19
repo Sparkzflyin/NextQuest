@@ -3,15 +3,18 @@
 import { useOptimistic, useTransition } from "react";
 import { Heart, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GameInfoButton } from "@/components/game-info-button";
 import { markNotInterested, toggleWishlist } from "./actions";
 
 // Floats inside each FYP card. Stops propagation so clicks don't trigger the
 // parent <Link>'s navigation.
 export function CardActions({
   rawgId,
+  title,
   initialWishlisted,
 }: {
   rawgId: number;
+  title: string;
   initialWishlisted: boolean;
 }) {
   const [wishlisted, setWish] = useOptimistic(initialWishlisted, (_cur, next: boolean) => next);
@@ -37,6 +40,7 @@ export function CardActions({
 
   return (
     <div className="absolute right-2 top-2 z-20 flex gap-1">
+      <GameInfoButton rawgId={rawgId} title={title} />
       <button
         type="button"
         onClick={onWishlist}
