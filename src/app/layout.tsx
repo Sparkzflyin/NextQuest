@@ -5,6 +5,7 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { CookieBanner } from "@/components/cookie-banner";
 import { AnalyticsGate } from "@/components/analytics-gate";
+import { PWARegister } from "@/components/pwa-register";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const pressStart = Press_Start_2P({
@@ -41,6 +42,12 @@ export const metadata: Metadata = {
     title: "NextQuest",
     description,
   },
+  applicationName: "NextQuest",
+  appleWebApp: {
+    capable: true,
+    title: "NextQuest",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
@@ -62,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Footer />
         <CookieBanner />
         <AnalyticsGate />
+        <PWARegister />
       </body>
     </html>
   );
