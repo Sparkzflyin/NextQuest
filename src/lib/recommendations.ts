@@ -12,6 +12,10 @@ export type RecommendationRow = {
   genres: string[];
   tags: string[];
   released: string | null;
+  // Lazy-cached RAWG description (null until someone opens the info modal for
+  // this game at least once). Clipped server-side so the swipe queue payload
+  // stays small even with full RAWG bodies in the column.
+  description: string | null;
   community_score: number;
   match_score: number;
 };
@@ -118,6 +122,11 @@ export async function loadLocalRecommendations(
       )
     select
       g.id, g.rawg_id, g.title, g.cover_url, g.genres, g.tags, g.released,
+      case
+        when g.description is null then null
+        when char_length(g.description) > 240 then left(g.description, 240) || '…'
+        else g.description
+      end as description,
       coalesce(t.score, 0) as community_score,
       (
         coalesce(cardinality(array(select unnest(g.genres) intersect select genre from fav_genres)), 0) * 3

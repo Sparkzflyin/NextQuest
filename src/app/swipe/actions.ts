@@ -89,6 +89,11 @@ export type SwipeCard = {
   genres: string[];
   tags: string[];
   matchScore: number | null;
+  // Short preview blurb (~240 chars). Null on RAWG-only cards (we don't pay
+  // N extra RAWG round-trips per queue fetch) and on local cards whose
+  // description hasn't been lazy-cached yet — the info button still loads
+  // the full body in both cases.
+  description: string | null;
 };
 
 export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
@@ -124,6 +129,7 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
     genres: g.genres,
     tags: g.tags,
     matchScore: g.match_score,
+    description: g.description,
   }));
 
   // RAWG fallback if we didn't get enough.
@@ -177,6 +183,7 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
             genres: g.genres,
             tags: [],
             matchScore: null,
+            description: null,
           });
           seen.add(g.rawgId);
           addedFromThisPage++;

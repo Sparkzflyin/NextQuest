@@ -406,6 +406,11 @@ function SwipeCardView({
         {card.tags.length > 0 && (
           <div className="text-xs text-neutral-500 truncate">{card.tags.slice(0, 5).join(" · ")}</div>
         )}
+        {card.description && (
+          <p className="line-clamp-2 text-xs leading-relaxed text-neutral-400">
+            {card.description}
+          </p>
+        )}
         {card.gameId && (
           <Link
             href={`/games/${card.gameId}`}
