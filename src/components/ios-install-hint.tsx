@@ -6,45 +6,51 @@ import { Share } from "lucide-react";
 const STORAGE_KEY = "nq_pwa_install_dismissed";
 const CONSENT_KEY = "nq_cookie_consent";
 
+function isEligibleEnv() {
+  const ua = navigator.userAgent;
+  const isIPhone = /iPhone|iPod/.test(ua);
+  const isIPad =
+    /iPad/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!isIPhone && !isIPad) return false;
+
+  // Non-Safari iOS browsers don't expose Add to Home Screen the same way.
+  if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return false;
+
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  if (standalone) return false;
+
+  try {
+    if (localStorage.getItem(STORAGE_KEY)) return false;
+  } catch {
+    // localStorage unavailable — fall through and show the hint anyway.
+  }
+
+  return true;
+}
+
 export function IOSInstallHint() {
-  const [eligible, setEligible] = useState(false);
-  const [consented, setConsented] = useState(false);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const ua = navigator.userAgent;
-    const isIPhone = /iPhone|iPod/.test(ua);
-    const isIPad =
-      /iPad/.test(ua) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const isIOS = isIPhone || isIPad;
-    if (!isIOS) return;
-
-    // Non-Safari iOS browsers don't expose Add to Home Screen the same way.
-    if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return;
-
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (standalone) return;
-
-    try {
-      if (localStorage.getItem(STORAGE_KEY)) return;
-    } catch {
-      // localStorage unavailable — fall through and show the hint anyway.
-    }
-
-    setEligible(true);
-
-    const syncConsent = () => {
-      try {
-        setConsented(Boolean(localStorage.getItem(CONSENT_KEY)));
-      } catch {
-        setConsented(true);
+    const sync = () => {
+      if (!isEligibleEnv()) {
+        setShow(false);
+        return;
       }
+      let consented = false;
+      try {
+        consented = Boolean(localStorage.getItem(CONSENT_KEY));
+      } catch {
+        consented = true;
+      }
+      setShow(consented);
     };
-    syncConsent();
-    window.addEventListener("nq:consent", syncConsent);
-    return () => window.removeEventListener("nq:consent", syncConsent);
+    sync();
+    window.addEventListener("nq:consent", sync);
+    return () => window.removeEventListener("nq:consent", sync);
   }, []);
 
   function dismiss() {
@@ -53,10 +59,10 @@ export function IOSInstallHint() {
     } catch {
       // ignore
     }
-    setEligible(false);
+    setShow(false);
   }
 
-  if (!eligible || !consented) return null;
+  if (!show) return null;
 
   return (
     <div
