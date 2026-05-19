@@ -51,10 +51,15 @@ export async function browseByGenres({
   genreNames,
   excludeIds = [],
   limit = 24,
+  page = 1,
 }: {
   genreNames: string[];
   excludeIds?: number[];
   limit?: number;
+  // RAWG's exclude_games param is unreliable on its own — it tends to scope
+  // to the current result page rather than the whole catalog. Callers should
+  // paginate by bumping this when they've already shown everything on page 1.
+  page?: number;
 }) {
   if (!genreNames.length) return [];
   const slugs = genreNames.map(genreToRawgSlug).join(",");
@@ -63,9 +68,11 @@ export async function browseByGenres({
   url.searchParams.set("genres", slugs);
   url.searchParams.set("ordering", "-rating");
   url.searchParams.set("page_size", String(Math.min(limit, 40)));
+  url.searchParams.set("page", String(page));
   if (excludeIds.length) {
     // RAWG caps URL length around ~2KB. ~30 IDs of 6 digits each is fine; if a
     // user has reviewed hundreds of games we'll silently drop the overflow.
+    // Also: don't rely on this alone — callers should filter client-side too.
     url.searchParams.set("exclude_games", excludeIds.slice(0, 200).join(","));
   }
   const res = await fetch(url.toString(), { next: { revalidate: 3600 } });

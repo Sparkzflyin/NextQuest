@@ -127,31 +127,47 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
   }));
 
   // RAWG fallback if we didn't get enough.
-  const needed = parsed.data.count - cards.length;
-  if (needed > 0) {
+  if (cards.length < parsed.data.count) {
     const favRows = await db
       .select({ name: userGenres.genre })
       .from(userGenres)
       .where(eq(userGenres.userId, user.id));
     const favGenres = favRows.map((r) => r.name);
     if (favGenres.length) {
-      // Pull every rawg_id the user has already swiped on so the RAWG
-      // fallback never recycles a previously-shown card. Without this the
-      // local CTE filters but RAWG happily hands back duplicates.
+      // Every rawg_id the user has already swiped on. We pass this to RAWG
+      // *and* re-check client-side because RAWG's exclude_games is unreliable
+      // (it often scopes to the current page rather than the whole catalog).
       const priorSwipes = await db
         .select({ rawgId: swipes.rawgId })
         .from(swipes)
         .where(eq(swipes.userId, user.id));
-      const swipedIds = priorSwipes.map((r) => r.rawgId);
-      try {
-        const raw = await browseByGenres({
-          genreNames: favGenres,
-          excludeIds: [...cards.map((c) => c.rawgId), ...swipedIds],
-          limit: needed * 2,
-        });
+      const swipedSet = new Set(priorSwipes.map((r) => r.rawgId));
+      const seen = new Set(cards.map((c) => c.rawgId));
+
+      // Paginate. A user with a small favorite genre will have already seen
+      // RAWG's top page after a couple of refresh cycles; without this loop
+      // they'd get back the same top-rated games on every visit.
+      const MAX_PAGES = 5;
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        if (cards.length >= parsed.data.count) break;
+        let raw;
+        try {
+          raw = await browseByGenres({
+            genreNames: favGenres,
+            // Send a hint to RAWG, but trust the client-side filter below.
+            excludeIds: [...seen, ...swipedSet],
+            limit: 40,
+            page,
+          });
+        } catch {
+          break; // RAWG outage — return what we have so far.
+        }
+        if (!raw.length) break; // out of catalog
+        let addedFromThisPage = 0;
         for (const g of raw) {
           if (cards.length >= parsed.data.count) break;
-          if (cards.some((c) => c.rawgId === g.rawgId)) continue;
+          if (seen.has(g.rawgId)) continue;
+          if (swipedSet.has(g.rawgId)) continue;
           cards.push({
             rawgId: g.rawgId,
             gameId: null,
@@ -162,9 +178,13 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
             tags: [],
             matchScore: null,
           });
+          seen.add(g.rawgId);
+          addedFromThisPage++;
         }
-      } catch {
-        // RAWG outage — return what we have.
+        // If every result was filtered out: a full page means we've seen
+        // RAWG's top tier and the next page might have new entries, so keep
+        // going. A short page means RAWG is out of catalog for this genre.
+        if (addedFromThisPage === 0 && raw.length < 40) break;
       }
     }
   }

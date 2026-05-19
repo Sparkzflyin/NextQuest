@@ -118,27 +118,39 @@ export default async function RecommendationsPage() {
       ...wishlistRows.map((r) => r.rawgId),
     ];
     try {
-      // Ask RAWG for a few extra so we can post-filter excluded genres without
-      // shrinking the page below TARGET_RESULTS.
-      const overFetch = Math.min(fillNeeded + excludedGenreSet.size * 4, fillNeeded * 3);
-      const raw = await browseByGenres({
-        genreNames: favGenres,
-        excludeIds,
-        limit: overFetch,
-      });
-      rawgFill = raw
-        .filter(
-          (g) =>
-            !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
-            !excludedRawgSet.has(g.rawgId) &&
-            !swipedSet.has(g.rawgId) &&
-            !wishlistSet.has(g.rawgId),
-        )
-        .slice(0, fillNeeded);
+      // Paginate through RAWG, dropping anything we should never resurface,
+      // until we've got enough or hit the page budget. RAWG's exclude_games
+      // is unreliable on its own, so we re-check every result client-side.
+      const MAX_PAGES = 5;
+      const seen = new Set<number>();
+      pageLoop: for (let page = 1; page <= MAX_PAGES; page++) {
+        if (rawgFill.length >= fillNeeded) break;
+        const raw = await browseByGenres({
+          genreNames: favGenres,
+          excludeIds,
+          limit: 40,
+          page,
+        });
+        if (!raw.length) break;
+        let addedFromThisPage = 0;
+        for (const g of raw) {
+          if (rawgFill.length >= fillNeeded) break pageLoop;
+          if (seen.has(g.rawgId)) continue;
+          if (g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase()))) continue;
+          if (excludedRawgSet.has(g.rawgId)) continue;
+          if (swipedSet.has(g.rawgId)) continue;
+          if (wishlistSet.has(g.rawgId)) continue;
+          rawgFill.push(g);
+          seen.add(g.rawgId);
+          addedFromThisPage++;
+        }
+        if (addedFromThisPage === 0 && raw.length < 40) break;
+      }
     } catch {
       // Soft-fail: a RAWG outage shouldn't blank the whole page.
-      rawgFill = [];
     }
+    // Trim in case the loop overshot (it shouldn't, but be safe).
+    rawgFill = rawgFill.slice(0, fillNeeded);
   }
 
   // ── Upcoming row ── released after today, ranked by RAWG's "added" count
