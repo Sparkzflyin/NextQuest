@@ -13,6 +13,15 @@ import { sanitizeTag } from "@/lib/tags";
 const schema = z.object({
   rawgId: z.number().int().positive(),
   rating: z.number().int().min(1).max(10),
+  // Optional per-axis subscores. Null means "reviewer didn't break it down."
+  gameplayRating: z.number().int().min(1).max(10).nullable(),
+  narrativeRating: z.number().int().min(1).max(10).nullable(),
+  designRating: z.number().int().min(1).max(10).nullable(),
+  // Optional per-axis notes. Empty-ish strings get coerced to null below so
+  // the in-depth bonus check (≥ 40 chars) stays honest.
+  gameplayNotes: z.string().max(1000).nullable(),
+  narrativeNotes: z.string().max(1000).nullable(),
+  designNotes: z.string().max(1000).nullable(),
   difficulty: z.number().int().min(1).max(5),
   length: z.enum(LENGTHS),
   platform: z.enum(PLATFORMS),
@@ -68,12 +77,24 @@ export async function logGame(input: z.input<typeof schema>) {
       }
     }
 
+    // Empty/whitespace-only notes collapse to null so the bonus check can't be
+    // gamed with a 40-character blob of spaces.
+    const gameplayNotes = blankToNull(parsed.data.gameplayNotes);
+    const narrativeNotes = blankToNull(parsed.data.narrativeNotes);
+    const designNotes = blankToNull(parsed.data.designNotes);
+
     await db
       .insert(reviews)
       .values({
         userId: user.id,
         gameId: game.id,
         rating: parsed.data.rating,
+        gameplayRating: parsed.data.gameplayRating,
+        narrativeRating: parsed.data.narrativeRating,
+        designRating: parsed.data.designRating,
+        gameplayNotes,
+        narrativeNotes,
+        designNotes,
         difficulty: parsed.data.difficulty,
         length: parsed.data.length,
         platform: parsed.data.platform,
@@ -85,6 +106,12 @@ export async function logGame(input: z.input<typeof schema>) {
         target: [reviews.userId, reviews.gameId],
         set: {
           rating: parsed.data.rating,
+          gameplayRating: parsed.data.gameplayRating,
+          narrativeRating: parsed.data.narrativeRating,
+          designRating: parsed.data.designRating,
+          gameplayNotes,
+          narrativeNotes,
+          designNotes,
           difficulty: parsed.data.difficulty,
           length: parsed.data.length,
           platform: parsed.data.platform,
@@ -104,6 +131,12 @@ export async function logGame(input: z.input<typeof schema>) {
     const msg = e instanceof Error ? e.message : "Database error.";
     return { ok: false as const, error: msg };
   }
+}
+
+function blankToNull(value: string | null): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 function dedupeCaseInsensitive(tags: string[]): string[] {

@@ -43,7 +43,8 @@ export function VoteButtons({
     <div className="flex items-center gap-1">
       <button
         type="button"
-        aria-label="Upvote"
+        aria-label="Recommend this game"
+        title="Recommend this game"
         onClick={() => cast(1)}
         className={cn(
           "flex h-11 w-11 items-center justify-center rounded-md hover:bg-neutral-800",
@@ -63,7 +64,8 @@ export function VoteButtons({
       </span>
       <button
         type="button"
-        aria-label="Downvote"
+        aria-label="Not for me"
+        title="Not for me"
         onClick={() => cast(-1)}
         className={cn(
           "flex h-11 w-11 items-center justify-center rounded-md hover:bg-neutral-800",

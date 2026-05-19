@@ -4,6 +4,8 @@ import { desc, eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { games, profiles, reviews } from "@/lib/db/schema";
+import { defaultReviewCredits } from "@/lib/credits";
+import { isInDepthReview } from "@/lib/reviews";
 import { ModerationButtons } from "./moderation-buttons";
 
 export const metadata = { title: "Moderation · NextQuest" };
@@ -25,6 +27,12 @@ export default async function AdminPage() {
     .select({
       id: reviews.id,
       rating: reviews.rating,
+      gameplayRating: reviews.gameplayRating,
+      narrativeRating: reviews.narrativeRating,
+      designRating: reviews.designRating,
+      gameplayNotes: reviews.gameplayNotes,
+      narrativeNotes: reviews.narrativeNotes,
+      designNotes: reviews.designNotes,
       body: reviews.body,
       length: reviews.length,
       platform: reviews.platform,
@@ -94,6 +102,19 @@ export default async function AdminPage() {
                   {r.rating}/10
                 </span>
               </div>
+              {(r.gameplayRating != null ||
+                r.narrativeRating != null ||
+                r.designRating != null) && (
+                <div className="font-terminal mb-2 text-base text-violet-300/80">
+                  {[
+                    r.gameplayRating != null && `Gameplay ${r.gameplayRating}`,
+                    r.narrativeRating != null && `Narrative ${r.narrativeRating}`,
+                    r.designRating != null && `Design ${r.designRating}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              )}
               <div className="font-terminal mb-3 text-base text-violet-400/70">
                 {[r.platform, r.length].filter(Boolean).join(" · ")}
                 {r.playstyle.length > 0 && <span> · {r.playstyle.join(", ")}</span>}
@@ -106,7 +127,38 @@ export default async function AdminPage() {
                   {r.body}
                 </p>
               )}
-              <ModerationButtons reviewId={r.id} />
+              {(r.gameplayNotes || r.narrativeNotes || r.designNotes) && (
+                <div className="font-terminal mb-4 space-y-2 border-l-2 border-violet-900/60 pl-3 text-lg text-violet-200/90">
+                  {r.gameplayNotes && (
+                    <div>
+                      <div className="font-pixel text-[10px] tracking-widest text-violet-300/80">
+                        GAMEPLAY
+                      </div>
+                      <p className="whitespace-pre-wrap">{r.gameplayNotes}</p>
+                    </div>
+                  )}
+                  {r.narrativeNotes && (
+                    <div>
+                      <div className="font-pixel text-[10px] tracking-widest text-violet-300/80">
+                        NARRATIVE
+                      </div>
+                      <p className="whitespace-pre-wrap">{r.narrativeNotes}</p>
+                    </div>
+                  )}
+                  {r.designNotes && (
+                    <div>
+                      <div className="font-pixel text-[10px] tracking-widest text-violet-300/80">
+                        DESIGN
+                      </div>
+                      <p className="whitespace-pre-wrap">{r.designNotes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              <ModerationButtons
+                reviewId={r.id}
+                defaultCredits={defaultReviewCredits(isInDepthReview(r))}
+              />
             </li>
           ))}
         </ul>

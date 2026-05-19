@@ -12,20 +12,28 @@ export function ProfileForm({
   initialUsername,
   initialGenres,
   initialPlaystyles,
+  initialExcludedGenres,
+  initialExcludedTags,
   allGenres,
   allPlaystyles,
 }: {
   initialUsername: string;
   initialGenres: string[];
   initialPlaystyles: string[];
+  initialExcludedGenres: string[];
+  initialExcludedTags: string[];
   allGenres: string[];
   allPlaystyles: string[];
 }) {
   const [username, setUsername] = useState(initialUsername);
   const [genres, setGenres] = useState<string[]>(initialGenres);
   const [playstyles, setPlaystyles] = useState<string[]>(initialPlaystyles);
+  const [excludedGenres, setExcludedGenres] = useState<string[]>(initialExcludedGenres);
+  const [excludedTags, setExcludedTags] = useState<string[]>(initialExcludedTags);
   const [genreQuery, setGenreQuery] = useState("");
   const [playstyleQuery, setPlaystyleQuery] = useState("");
+  const [excludedGenreQuery, setExcludedGenreQuery] = useState("");
+  const [excludedTagQuery, setExcludedTagQuery] = useState("");
   const [status, setStatus] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [pending, start] = useTransition();
 
@@ -37,12 +45,21 @@ export function ProfileForm({
   // Selected chips stay visible even when filtered, so users never lose sight of their picks.
   const visibleGenres = filterTags(allGenres, genres, genreQuery);
   const visiblePlaystyles = filterTags(playstyleOptions, playstyles, playstyleQuery);
+  const visibleExcludedGenres = filterTags(allGenres, excludedGenres, excludedGenreQuery);
 
   // Custom-tag draft for playstyles only. Genres are RAWG-driven, no user creation.
   const customPlaystyleDraft = (() => {
     const clean = sanitizeTag(playstyleQuery);
     if (!clean) return null;
     const exists = playstyleOptions.some((t) => t.toLowerCase() === clean.toLowerCase());
+    return exists ? null : clean;
+  })();
+
+  // Excluded tags are free-form too — anything in RAWG's tag soup is fair game.
+  const customExcludedTagDraft = (() => {
+    const clean = sanitizeTag(excludedTagQuery);
+    if (!clean) return null;
+    const exists = excludedTags.some((t) => t.toLowerCase() === clean.toLowerCase());
     return exists ? null : clean;
   })();
 
@@ -54,6 +71,14 @@ export function ProfileForm({
     setPlaystyleQuery("");
   }
 
+  function addExcludedTag() {
+    if (!customExcludedTagDraft) return;
+    setExcludedTags((cur) =>
+      cur.includes(customExcludedTagDraft) ? cur : [...cur, customExcludedTagDraft],
+    );
+    setExcludedTagQuery("");
+  }
+
   function toggleGenre(g: string) {
     setGenres((cur) => (cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g]));
   }
@@ -62,11 +87,25 @@ export function ProfileForm({
     setPlaystyles((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   }
 
+  function toggleExcludedGenre(g: string) {
+    setExcludedGenres((cur) => (cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g]));
+  }
+
+  function removeExcludedTag(t: string) {
+    setExcludedTags((cur) => cur.filter((x) => x !== t));
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus(null);
     start(async () => {
-      const result = await saveProfile({ username, genres, playstyles });
+      const result = await saveProfile({
+        username,
+        genres,
+        playstyles,
+        excludedGenres,
+        excludedTags,
+      });
       setStatus(
         result.ok
           ? { kind: "ok", msg: "Saved." }
@@ -178,6 +217,95 @@ export function ProfileForm({
                 </button>
               );
             })
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-red-900/40 bg-red-950/10 p-4">
+        <Label htmlFor="excluded-genre-search" className="text-red-200">
+          Never show me these genres
+        </Label>
+        <p className="text-sm text-neutral-400">
+          Games tagged with these won&apos;t appear on your &ldquo;For You&rdquo; page.
+        </p>
+        <Input
+          id="excluded-genre-search"
+          type="search"
+          placeholder="Search genres to block…"
+          value={excludedGenreQuery}
+          onChange={(e) => setExcludedGenreQuery(e.target.value)}
+        />
+        <div className="flex flex-wrap gap-2">
+          {visibleExcludedGenres.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              No matches for &ldquo;{excludedGenreQuery}&rdquo;.
+            </p>
+          ) : (
+            visibleExcludedGenres.map((g) => {
+              const active = excludedGenres.includes(g);
+              return (
+                <button
+                  type="button"
+                  key={g}
+                  onClick={() => toggleExcludedGenre(g)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    active
+                      ? "border-red-500 bg-red-600/20 text-red-200"
+                      : "border-neutral-700 text-neutral-300 hover:border-red-700",
+                  )}
+                >
+                  {g}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-red-900/40 bg-red-950/10 p-4">
+        <Label htmlFor="excluded-tag-search" className="text-red-200">
+          Never show me games tagged…
+        </Label>
+        <p className="text-sm text-neutral-400">
+          Free-form. Add any RAWG tag you want to hide (e.g. &ldquo;Horror&rdquo;,
+          &ldquo;Multiplayer&rdquo;, &ldquo;VR&rdquo;).
+        </p>
+        <div className="flex gap-2">
+          <Input
+            id="excluded-tag-search"
+            type="search"
+            placeholder="Add a tag to block…"
+            value={excludedTagQuery}
+            onChange={(e) => setExcludedTagQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && customExcludedTagDraft) {
+                e.preventDefault();
+                addExcludedTag();
+              }
+            }}
+          />
+          {customExcludedTagDraft && (
+            <Button type="button" variant="outline" onClick={addExcludedTag}>
+              + Block &ldquo;{customExcludedTagDraft}&rdquo;
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {excludedTags.length === 0 ? (
+            <p className="text-sm text-neutral-500">No tags blocked yet.</p>
+          ) : (
+            excludedTags.map((t) => (
+              <button
+                type="button"
+                key={t}
+                onClick={() => removeExcludedTag(t)}
+                className="rounded-full border border-red-500 bg-red-600/20 px-3 py-1.5 text-sm text-red-200 hover:border-red-400"
+                title="Click to unblock"
+              >
+                {t} ×
+              </button>
+            ))
           )}
         </div>
       </div>

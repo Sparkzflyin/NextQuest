@@ -7,6 +7,12 @@ alter table public.reviews       enable row level security;
 alter table public.votes         enable row level security;
 alter table public.user_genres   enable row level security;
 alter table public.user_playstyles enable row level security;
+alter table public.user_excluded_genres enable row level security;
+alter table public.user_excluded_tags   enable row level security;
+alter table public.user_excluded_games  enable row level security;
+alter table public.user_wishlist        enable row level security;
+alter table public.user_currently_playing enable row level security;
+alter table public.swipes               enable row level security;
 alter table public.canonical_genres enable row level security;
 alter table public.canonical_playstyles enable row level security;
 
@@ -60,6 +66,48 @@ drop policy if exists "user_playstyles_read_all"   on public.user_playstyles;
 drop policy if exists "user_playstyles_write_self" on public.user_playstyles;
 create policy "user_playstyles_read_all"   on public.user_playstyles for select using (true);
 create policy "user_playstyles_write_self" on public.user_playstyles for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- user_excluded_{genres,tags}: same shape as user_playstyles; "never show me" lists.
+drop policy if exists "user_excluded_genres_read_all"   on public.user_excluded_genres;
+drop policy if exists "user_excluded_genres_write_self" on public.user_excluded_genres;
+create policy "user_excluded_genres_read_all"   on public.user_excluded_genres for select using (true);
+create policy "user_excluded_genres_write_self" on public.user_excluded_genres for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "user_excluded_tags_read_all"   on public.user_excluded_tags;
+drop policy if exists "user_excluded_tags_write_self" on public.user_excluded_tags;
+create policy "user_excluded_tags_read_all"   on public.user_excluded_tags for select using (true);
+create policy "user_excluded_tags_write_self" on public.user_excluded_tags for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- user_excluded_games: PRIVATE — only the owner sees what they've hidden.
+drop policy if exists "user_excluded_games_read_self"  on public.user_excluded_games;
+drop policy if exists "user_excluded_games_write_self" on public.user_excluded_games;
+create policy "user_excluded_games_read_self"  on public.user_excluded_games for select
+  using (auth.uid() = user_id);
+create policy "user_excluded_games_write_self" on public.user_excluded_games for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- user_wishlist: public (social signal), write own.
+drop policy if exists "user_wishlist_read_all"   on public.user_wishlist;
+drop policy if exists "user_wishlist_write_self" on public.user_wishlist;
+create policy "user_wishlist_read_all"   on public.user_wishlist for select using (true);
+create policy "user_wishlist_write_self" on public.user_wishlist for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- user_currently_playing: read all (public dashboard signal), write own.
+drop policy if exists "user_currently_playing_read_all"   on public.user_currently_playing;
+drop policy if exists "user_currently_playing_write_self" on public.user_currently_playing;
+create policy "user_currently_playing_read_all"   on public.user_currently_playing for select using (true);
+create policy "user_currently_playing_write_self" on public.user_currently_playing for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- swipes: PRIVATE — personal queue state.
+drop policy if exists "swipes_read_self"  on public.swipes;
+drop policy if exists "swipes_write_self" on public.swipes;
+create policy "swipes_read_self"  on public.swipes for select using (auth.uid() = user_id);
+create policy "swipes_write_self" on public.swipes for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- canonical_{genres,playstyles}: read all; writes happen via server actions (service role)

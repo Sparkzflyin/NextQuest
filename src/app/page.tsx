@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { and, asc, count, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { canonicalGenres, reviews, votes } from "@/lib/db/schema";
+import { canonicalGenres } from "@/lib/db/schema";
+import { getCreditsForUser } from "@/lib/credits";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -10,19 +11,15 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let score = 0;
+  let creditsTotal = 0;
+  let contributionCount = 0;
   if (user) {
-    const [r] = await db
-      .select({ n: count() })
-      .from(reviews)
-      .where(and(eq(reviews.userId, user.id), eq(reviews.status, "approved")));
-    const [v] = await db
-      .select({ n: count() })
-      .from(votes)
-      .where(eq(votes.userId, user.id));
-    score = (r?.n ?? 0) + (v?.n ?? 0);
+    const c = await getCreditsForUser(user.id);
+    creditsTotal = c.total;
+    contributionCount = c.approvedReviews + c.votes;
   }
-  const scoreLabel = score.toString().padStart(4, "0");
+  const scoreLabel = contributionCount.toString().padStart(4, "0");
+  const creditsLabel = creditsTotal.toString().padStart(4, "0");
 
   const genreRows = await db
     .select({ name: canonicalGenres.name })
@@ -50,7 +47,10 @@ export default async function Home() {
               HI-SCORE <span className="neon-gold">{scoreLabel}</span>
             </span>
             <span>
-              CREDITS <span className="text-neon-cyan neon-cyan">{user ? "01" : "00"}</span>
+              CREDITS{" "}
+              <span className="text-neon-cyan neon-cyan">
+                {user ? creditsLabel : "0000"}
+              </span>
             </span>
           </div>
         </div>

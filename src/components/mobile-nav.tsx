@@ -46,6 +46,7 @@ export function MobileNav({ signedIn, isAdmin }: Props) {
                 <>
                   <MobileLink href="/log">Log a game</MobileLink>
                   <MobileLink href="/recommendations">For you</MobileLink>
+                  <MobileLink href="/swipe">Swipe</MobileLink>
                   <MobileLink href="/profile">Profile</MobileLink>
                   {isAdmin && (
                     <Link

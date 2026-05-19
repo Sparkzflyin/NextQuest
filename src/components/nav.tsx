@@ -59,6 +59,12 @@ export async function Nav() {
                 For you
               </Link>
               <Link
+                href="/swipe"
+                className="font-terminal text-lg text-violet-300 hover:text-neon-cyan"
+              >
+                Swipe
+              </Link>
+              <Link
                 href="/profile"
                 className="font-terminal text-lg text-violet-300 hover:text-neon-cyan"
               >

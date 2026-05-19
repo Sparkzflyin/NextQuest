@@ -1,12 +1,20 @@
 import Link from "next/link";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { userGenres } from "@/lib/db/schema";
+import {
+  userExcludedGames,
+  userExcludedGenres,
+  userGenres,
+  userWishlist,
+} from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { browseByGenres } from "@/lib/rawg";
+import { browseByGenres, browseUpcomingByGenres } from "@/lib/rawg";
+import { loadLocalRecommendations } from "@/lib/recommendations";
 import { Card } from "@/components/ui/card";
+import { CardActions } from "./card-actions";
 
 const TARGET_RESULTS = 24;
+const UPCOMING_LIMIT = 6;
 
 export default async function RecommendationsPage() {
   const supabase = await createClient();
@@ -15,85 +23,9 @@ export default async function RecommendationsPage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // match_score =
-  //   (favorite genres ∩ game.genres) * 3                       -- explicit
-  // + (favorite playstyles ∩ game's review playstyles) * 3       -- explicit
-  // + (loved-games genres ∩ game.genres) * 2                     -- inferred
-  // + (loved-games playstyles ∩ game's review playstyles) * 2    -- inferred
-  // + (loved-games RAWG tags ∩ game.tags) * 1
-  // + community score
-  // Exclude games already reviewed by this user.
-  const rows = await db.execute(sql`
-    with
-      fav_genres as (
-        select genre from public.user_genres where user_id = ${user.id}
-      ),
-      fav_playstyles as (
-        select playstyle from public.user_playstyles where user_id = ${user.id}
-      ),
-      loved as (
-        select g.id as game_id, g.genres, g.tags
-        from public.reviews r
-        join public.games g on g.id = r.game_id
-        where r.user_id = ${user.id} and r.rating >= 8
-      ),
-      loved_tags as (
-        select distinct unnest(tags) as tag from loved
-      ),
-      loved_genres as (
-        select distinct unnest(genres) as genre from loved
-      ),
-      loved_playstyles as (
-        select distinct unnest(r.playstyle) as playstyle
-        from public.reviews r
-        join loved l on l.game_id = r.game_id
-        where r.status = 'approved'
-      ),
-      game_playstyles as (
-        select r.game_id, array_agg(distinct ps) as playstyles
-        from public.reviews r,
-             lateral unnest(r.playstyle) as ps
-        where r.status = 'approved'
-        group by r.game_id
-      ),
-      reviewed as (
-        select game_id from public.reviews where user_id = ${user.id}
-      ),
-      tallies as (
-        select game_id, coalesce(sum(value), 0)::int as score
-        from public.votes
-        group by game_id
-      )
-    select
-      g.id, g.rawg_id, g.title, g.cover_url, g.genres, g.released,
-      coalesce(t.score, 0) as community_score,
-      (
-        coalesce(cardinality(array(select unnest(g.genres) intersect select genre from fav_genres)), 0) * 3
-        + coalesce(cardinality(array(select unnest(coalesce(gp.playstyles, '{}'::text[])) intersect select playstyle from fav_playstyles)), 0) * 3
-        + coalesce(cardinality(array(select unnest(g.genres) intersect select genre from loved_genres)), 0) * 2
-        + coalesce(cardinality(array(select unnest(coalesce(gp.playstyles, '{}'::text[])) intersect select playstyle from loved_playstyles)), 0) * 2
-        + coalesce(cardinality(array(select unnest(g.tags)   intersect select tag   from loved_tags)),   0)
-        + coalesce(t.score, 0)
-      )::int as match_score
-    from public.games g
-    left join tallies t on t.game_id = g.id
-    left join game_playstyles gp on gp.game_id = g.id
-    where g.id not in (select game_id from reviewed)
-    order by match_score desc, community_score desc
-    limit ${TARGET_RESULTS}
-  `);
-
-  type LocalRow = {
-    id: string;
-    rawg_id: number;
-    title: string;
-    cover_url: string | null;
-    genres: string[];
-    released: string | null;
-    community_score: number;
-    match_score: number;
-  };
-  const localRecs = (rows as unknown as LocalRow[]) ?? [];
+  // Ranking happens in loadLocalRecommendations (shared with /swipe). Helper
+  // normalizes Postgres text[] columns into real JS string arrays.
+  const localRecs = await loadLocalRecommendations(user.id, TARGET_RESULTS);
 
   // RAWG fallback: when the local catalog can't fill the page, query RAWG by
   // the user's favorite genres. Playstyles don't apply here (different vocab).
@@ -101,7 +33,26 @@ export default async function RecommendationsPage() {
     .select({ name: userGenres.genre })
     .from(userGenres)
     .where(eq(userGenres.userId, user.id));
-  const favGenres = favGenreRows.map((r) => r.name);
+  // Pulled here so we can post-filter the RAWG fallback (which doesn't know
+  // about user exclusions). Tag exclusion already runs in the SQL above.
+  const excludedGenreRows = await db
+    .select({ name: userExcludedGenres.genre })
+    .from(userExcludedGenres)
+    .where(eq(userExcludedGenres.userId, user.id));
+  const excludedGameRows = await db
+    .select({ rawgId: userExcludedGames.rawgId })
+    .from(userExcludedGames)
+    .where(eq(userExcludedGames.userId, user.id));
+  const wishlistRows = await db
+    .select({ rawgId: userWishlist.rawgId })
+    .from(userWishlist)
+    .where(eq(userWishlist.userId, user.id));
+  const excludedGenreSet = new Set(excludedGenreRows.map((r) => r.name.toLowerCase()));
+  const excludedRawgSet = new Set(excludedGameRows.map((r) => r.rawgId));
+  const wishlistSet = new Set(wishlistRows.map((r) => r.rawgId));
+  const favGenres = favGenreRows
+    .map((r) => r.name)
+    .filter((g) => !excludedGenreSet.has(g.toLowerCase()));
 
   type RawgRec = {
     rawgId: number;
@@ -122,30 +73,65 @@ export default async function RecommendationsPage() {
     const excludeIds = [
       ...localRecs.map((r) => r.rawg_id),
       ...(reviewed as unknown as { rawg_id: number }[]).map((r) => r.rawg_id),
+      ...excludedGameRows.map((r) => r.rawgId),
     ];
     try {
-      rawgFill = await browseByGenres({
+      // Ask RAWG for a few extra so we can post-filter excluded genres without
+      // shrinking the page below TARGET_RESULTS.
+      const overFetch = Math.min(fillNeeded + excludedGenreSet.size * 4, fillNeeded * 3);
+      const raw = await browseByGenres({
         genreNames: favGenres,
         excludeIds,
-        limit: fillNeeded,
+        limit: overFetch,
       });
+      rawgFill = raw
+        .filter(
+          (g) =>
+            !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
+            !excludedRawgSet.has(g.rawgId),
+        )
+        .slice(0, fillNeeded);
     } catch {
       // Soft-fail: a RAWG outage shouldn't blank the whole page.
       rawgFill = [];
     }
   }
 
+  // ── Upcoming row ── released after today, ranked by RAWG's "added" count
+  // as a hype proxy. Same exclusion rules apply.
+  let upcoming: RawgRec[] = [];
+  if (favGenres.length > 0) {
+    try {
+      const raw = await browseUpcomingByGenres({
+        genreNames: favGenres,
+        excludeIds: [...excludedRawgSet],
+        limit: UPCOMING_LIMIT * 2,
+      });
+      upcoming = raw
+        .filter(
+          (g) =>
+            !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
+            !excludedRawgSet.has(g.rawgId),
+        )
+        .slice(0, UPCOMING_LIMIT);
+    } catch {
+      upcoming = [];
+    }
+  }
+
   const hasAny = localRecs.length + rawgFill.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       <div>
         <h1 className="text-3xl font-bold">For you</h1>
         <p className="text-sm text-neutral-400">
           Picked from your favorite genres and the traits of games you&apos;ve rated highly. The{" "}
           <span className="font-pixel text-[10px] tracking-widest text-neon-cyan">RAWG</span>{" "}
           badge means it&apos;s a catalog match nobody&apos;s logged yet — click to log it and pull
-          it into the community board.
+          it into the community board. Hit{" "}
+          <span className="text-rose-400">♥</span> to wishlist or{" "}
+          <span className="text-red-400">×</span> to hide.
         </p>
       </div>
       {!hasAny ? (
@@ -165,58 +151,103 @@ export default async function RecommendationsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {localRecs.map((g) => (
-            <Link key={`local-${g.id}`} href={`/games/${g.id}`}>
-              <Card className="relative h-full hover:border-violet-500">
-                {g.cover_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={g.cover_url}
-                    alt=""
-                    className="mb-3 h-32 w-full rounded object-cover"
-                  />
-                )}
-                <div className="font-medium">{g.title}</div>
-                <div className="text-xs text-neutral-500">
-                  {g.released ?? "—"} · {g.genres.slice(0, 3).join(", ")}
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-xs text-violet-300">
-                  <span>match {g.match_score}</span>
-                  {g.community_score !== 0 && (
-                    <span className="text-neutral-500">· {g.community_score} net votes</span>
+            <div key={`local-${g.id}`} className="relative">
+              <CardActions rawgId={g.rawg_id} initialWishlisted={wishlistSet.has(g.rawg_id)} />
+              <Link href={`/games/${g.id}`}>
+                <Card className="relative h-full hover:border-violet-500">
+                  {g.cover_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={g.cover_url}
+                      alt=""
+                      className="mb-3 h-32 w-full rounded object-cover"
+                    />
                   )}
-                </div>
-              </Card>
-            </Link>
+                  <div className="font-medium">{g.title}</div>
+                  <div className="text-xs text-neutral-500">
+                    {g.released ?? "—"} · {g.genres.slice(0, 3).join(", ")}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-violet-300">
+                    <span>match {g.match_score}</span>
+                    {g.community_score !== 0 && (
+                      <span className="text-neutral-500">· {g.community_score} net votes</span>
+                    )}
+                  </div>
+                </Card>
+              </Link>
+            </div>
           ))}
           {rawgFill.map((g) => (
-            <Link
-              key={`rawg-${g.rawgId}`}
-              href={`/log?rawgId=${g.rawgId}`}
-              title="Log this game to add it to the community board"
-            >
-              <Card className="relative h-full border-cyan-900/60 hover:border-neon-cyan">
-                <span className="font-pixel absolute right-2 top-2 z-10 border border-cyan-500/70 bg-[#0a0c18]/90 px-1.5 py-0.5 text-[9px] tracking-widest text-neon-cyan">
-                  RAWG
-                </span>
-                {g.coverUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={g.coverUrl}
-                    alt=""
-                    className="mb-3 h-32 w-full rounded object-cover"
-                  />
-                )}
-                <div className="font-medium">{g.title}</div>
-                <div className="text-xs text-neutral-500">
-                  {g.released ?? "—"} · {g.genres.slice(0, 3).join(", ")}
-                </div>
-                <div className="mt-2 text-xs text-cyan-300">
-                  + Log this to add it to the community board
-                </div>
-              </Card>
-            </Link>
+            <div key={`rawg-${g.rawgId}`} className="relative">
+              <CardActions rawgId={g.rawgId} initialWishlisted={wishlistSet.has(g.rawgId)} />
+              <Link
+                href={`/log?rawgId=${g.rawgId}`}
+                title="Log this game to add it to the community board"
+              >
+                <Card className="relative h-full border-cyan-900/60 hover:border-neon-cyan">
+                  <span className="font-pixel absolute left-2 top-2 z-10 border border-cyan-500/70 bg-[#0a0c18]/90 px-1.5 py-0.5 text-[9px] tracking-widest text-neon-cyan">
+                    RAWG
+                  </span>
+                  {g.coverUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={g.coverUrl}
+                      alt=""
+                      className="mb-3 h-32 w-full rounded object-cover"
+                    />
+                  )}
+                  <div className="font-medium">{g.title}</div>
+                  <div className="text-xs text-neutral-500">
+                    {g.released ?? "—"} · {g.genres.slice(0, 3).join(", ")}
+                  </div>
+                  <div className="mt-2 text-xs text-cyan-300">
+                    + Log this to add it to the community board
+                  </div>
+                </Card>
+              </Link>
+            </div>
           ))}
         </div>
+      )}
+
+      {upcoming.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-xl font-semibold">Coming soon</h2>
+            <p className="text-sm text-neutral-400">
+              Unreleased titles in your favorite genres. Wishlist them to keep an eye on release day.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {upcoming.map((g) => (
+              <div key={`upcoming-${g.rawgId}`} className="relative">
+                <CardActions rawgId={g.rawgId} initialWishlisted={wishlistSet.has(g.rawgId)} />
+                <Link
+                  href={`/log?rawgId=${g.rawgId}`}
+                  title="Log this when you play it"
+                >
+                  <Card className="relative h-full border-amber-900/60 hover:border-amber-500">
+                    <span className="font-pixel absolute left-2 top-2 z-10 border border-amber-500/70 bg-[#0a0c18]/90 px-1.5 py-0.5 text-[9px] tracking-widest text-amber-300">
+                      UPCOMING
+                    </span>
+                    {g.coverUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={g.coverUrl}
+                        alt=""
+                        className="mb-3 h-32 w-full rounded object-cover"
+                      />
+                    )}
+                    <div className="font-medium">{g.title}</div>
+                    <div className="text-xs text-neutral-500">
+                      {g.released ?? "TBA"} · {g.genres.slice(0, 3).join(", ")}
+                    </div>
+                  </Card>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

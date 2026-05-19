@@ -79,6 +79,46 @@ export async function browseByGenres({
   }));
 }
 
+// Upcoming releases in user's favorite genres. RAWG's `dates` filter is
+// inclusive on both ends; `-added` orders by how many users have added to a
+// collection, which is a reasonable hype proxy for unreleased titles.
+export async function browseUpcomingByGenres({
+  genreNames,
+  excludeIds = [],
+  limit = 12,
+}: {
+  genreNames: string[];
+  excludeIds?: number[];
+  limit?: number;
+}) {
+  if (!genreNames.length) return [];
+  const slugs = genreNames.map(genreToRawgSlug).join(",");
+  const today = new Date().toISOString().slice(0, 10);
+  const inAYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const url = new URL(`${BASE}/games`);
+  url.searchParams.set("key", key());
+  url.searchParams.set("genres", slugs);
+  url.searchParams.set("dates", `${today},${inAYear}`);
+  url.searchParams.set("ordering", "-added");
+  url.searchParams.set("page_size", String(Math.min(limit, 40)));
+  if (excludeIds.length) {
+    url.searchParams.set("exclude_games", excludeIds.slice(0, 200).join(","));
+  }
+  const res = await fetch(url.toString(), { next: { revalidate: 3600 } });
+  if (!res.ok) throw new Error(`RAWG upcoming failed: ${res.status}`);
+  const json = (await res.json()) as { results: RawgGame[] };
+  return json.results.map((g) => ({
+    rawgId: g.id,
+    slug: g.slug,
+    title: g.name,
+    coverUrl: g.background_image,
+    released: g.released,
+    genres: g.genres.map((x) => x.name),
+  }));
+}
+
 export async function fetchGame(rawgId: number) {
   const url = new URL(`${BASE}/games/${rawgId}`);
   url.searchParams.set("key", key());
