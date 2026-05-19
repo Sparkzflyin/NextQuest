@@ -121,9 +121,14 @@ export default async function RecommendationsPage() {
       // Paginate through RAWG, dropping anything we should never resurface,
       // until we've got enough or hit the page budget. RAWG's exclude_games
       // is unreliable on its own, so we re-check every result client-side.
+      // Start at a random page so the visible fill rotates between refreshes
+      // — page-1 results are stable for an hour (RAWG cache) and otherwise
+      // would dominate every render until the user actually swiped.
       const MAX_PAGES = 5;
+      const startPage = 1 + Math.floor(Math.random() * 3);
       const seen = new Set<number>();
-      pageLoop: for (let page = 1; page <= MAX_PAGES; page++) {
+      pageLoop: for (let offset = 0; offset < MAX_PAGES; offset++) {
+        const page = startPage + offset;
         if (rawgFill.length >= fillNeeded) break;
         const raw = await browseByGenres({
           genreNames: favGenres,
@@ -154,7 +159,10 @@ export default async function RecommendationsPage() {
   }
 
   // ── Upcoming row ── released after today, ranked by RAWG's "added" count
-  // as a hype proxy. Same exclusion rules apply.
+  // as a hype proxy. Same exclusion rules apply. Over-fetch the pool then
+  // shuffle so the visible 6 rotate between refreshes — same trick as the
+  // local picks above. Without this the top-6-by-hype are identical every
+  // render until something in excludeIds changes.
   let upcoming: RawgRec[] = [];
   if (favGenres.length > 0) {
     try {
@@ -162,16 +170,15 @@ export default async function RecommendationsPage() {
         genreNames: favGenres,
         // Don't bother RAWG with games we'd just filter out client-side.
         excludeIds: [...excludedRawgSet, ...swipedSet],
-        limit: UPCOMING_LIMIT * 2,
+        limit: UPCOMING_LIMIT * 4,
       });
-      upcoming = raw
-        .filter(
-          (g) =>
-            !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
-            !excludedRawgSet.has(g.rawgId) &&
-            !swipedSet.has(g.rawgId),
-        )
-        .slice(0, UPCOMING_LIMIT);
+      const filtered = raw.filter(
+        (g) =>
+          !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
+          !excludedRawgSet.has(g.rawgId) &&
+          !swipedSet.has(g.rawgId),
+      );
+      upcoming = shuffleInPlace([...filtered]).slice(0, UPCOMING_LIMIT);
     } catch {
       upcoming = [];
     }
