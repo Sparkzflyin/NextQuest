@@ -144,9 +144,19 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- Lock down the RPC surface. The function is only meant to fire from the
+-- on_auth_user_created trigger; PostgREST would otherwise expose it at
+-- /rest/v1/rpc/handle_new_user to anon + authenticated roles. Trigger
+-- execution doesn't need EXECUTE on the function itself, so revoking is safe.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
 -- Leaderboard view: net votes per game, exploded by genre so we can filter.
+-- security_invoker = true makes the view honor the caller's RLS on games/votes
+-- instead of running as the view owner (default Postgres behavior, which
+-- Supabase's advisor flags as SECURITY DEFINER).
 drop view if exists public.game_leaderboard;
-create view public.game_leaderboard as
+create view public.game_leaderboard
+  with (security_invoker = true) as
 select
   g.id          as game_id,
   g.rawg_id     as rawg_id,
