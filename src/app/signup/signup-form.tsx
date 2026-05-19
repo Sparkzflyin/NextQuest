@@ -22,15 +22,26 @@ export function SignupForm() {
     setPending(true);
     setError(null);
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    // emailRedirectTo flows through Supabase's confirmation email and back into
+    // our PKCE callback, which exchanges the code for a session and lands on
+    // /profile. Without this the link redirects to the Supabase project URL.
+    const redirectTo = `${window.location.origin}/auth/callback?next=/profile`;
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username } },
+      options: { data: { username }, emailRedirectTo: redirectTo },
     });
     setPending(false);
     if (error) return setError(error.message);
+    // If email confirmation is off in the dashboard, signUp returns a session
+    // immediately and the user is already logged in. Otherwise data.session is
+    // null and we need to wait for them to click the email link.
     router.refresh();
-    router.push("/profile");
+    if (data.session) {
+      router.push("/profile");
+    } else {
+      router.push(`/verify?email=${encodeURIComponent(email)}`);
+    }
   }
 
   return (

@@ -18,6 +18,8 @@ import { Card } from "@/components/ui/card";
 import { getCreditsForUser, trustTier } from "@/lib/credits";
 import { ProfileForm } from "./profile-form";
 import { CurrentlyPlayingSection } from "./currently-playing-section";
+import { AccountSecuritySection } from "./account-security-section";
+import { AvatarUpload } from "./avatar-upload";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -102,11 +104,23 @@ export default async function ProfilePage() {
   const credits = await getCreditsForUser(user.id);
   const tier = trustTier(credits.total);
 
+  // hasPassword = does the user have an email/password identity? Google-only
+  // accounts have just a "google" identity and no password — we surface a "Set
+  // password" affordance instead of "Change password" for them.
+  const hasPassword = (user.identities ?? []).some((i) => i.provider === "email");
+
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Your profile</h1>
-        <p className="text-sm text-neutral-400">Signed in as {user.email}</p>
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Your profile</h1>
+          <p className="text-sm text-neutral-400">Signed in as {user.email}</p>
+        </div>
+        <AvatarUpload
+          userId={user.id}
+          currentAvatarUrl={profile?.avatarUrl ?? null}
+          username={profile?.username ?? user.email ?? "?"}
+        />
       </div>
 
       <Card className="space-y-2">
@@ -189,6 +203,11 @@ export default async function ProfilePage() {
         initialExcludedTags={excludedTags.map((t) => t.tag)}
         allGenres={allGenres.map((r) => r.name)}
         allPlaystyles={allPlaystyles.map((r) => r.name)}
+      />
+
+      <AccountSecuritySection
+        currentEmail={user.email ?? ""}
+        hasPassword={hasPassword}
       />
 
       <section className="space-y-3">

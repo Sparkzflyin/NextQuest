@@ -150,6 +150,41 @@ create trigger on_auth_user_created
 -- execution doesn't need EXECUTE on the function itself, so revoking is safe.
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
+-- ── Avatar storage bucket ──
+-- Public-read bucket so any visitor can render an avatar from a plain URL
+-- (no signed-URL dance for a public profile picture). Writes are owner-only:
+-- every file lives at "<user_id>/avatar" and the policy compares the first
+-- path segment to auth.uid().
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "avatars_read_all"   on storage.objects;
+drop policy if exists "avatars_write_own"  on storage.objects;
+drop policy if exists "avatars_update_own" on storage.objects;
+drop policy if exists "avatars_delete_own" on storage.objects;
+
+create policy "avatars_read_all" on storage.objects for select
+  using (bucket_id = 'avatars');
+
+create policy "avatars_write_own" on storage.objects for insert
+  with check (
+    bucket_id = 'avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "avatars_update_own" on storage.objects for update
+  using (
+    bucket_id = 'avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "avatars_delete_own" on storage.objects for delete
+  using (
+    bucket_id = 'avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
 -- Leaderboard view: net votes per game, exploded by genre so we can filter.
 -- security_invoker = true makes the view honor the caller's RLS on games/votes
 -- instead of running as the view owner (default Postgres behavior, which

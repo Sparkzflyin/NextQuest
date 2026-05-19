@@ -52,6 +52,7 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
       status: reviews.status,
       createdAt: reviews.createdAt,
       username: profiles.username,
+      avatarUrl: profiles.avatarUrl,
     })
     .from(reviews)
     .innerJoin(profiles, eq(profiles.id, reviews.userId))
@@ -159,7 +160,22 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
                   )}
                   <div className={cn("mb-1 flex items-center justify-between gap-2", inDepth && "pr-32")}>
                     <span className="flex items-center gap-2 text-sm font-medium text-neutral-200">
-                      {r.username}
+                      <Link
+                        href={`/users/${encodeURIComponent(r.username)}`}
+                        className="group inline-flex items-center gap-2 hover:text-neon-cyan"
+                      >
+                        <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border border-violet-800/60 bg-neutral-900">
+                          {r.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="font-pixel flex h-full w-full items-center justify-center text-[10px] text-violet-300/70">
+                              {r.username.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                        </span>
+                        <span className="group-hover:underline">{r.username}</span>
+                      </Link>
                       {isMine && (
                         <span className="rounded border border-violet-700/60 px-1.5 py-0.5 text-[9px] tracking-widest text-violet-200">
                           YOU
