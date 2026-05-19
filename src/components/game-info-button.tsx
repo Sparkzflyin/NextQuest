@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchGameDescription } from "@/app/recommendations/actions";
@@ -23,6 +24,10 @@ export function GameInfoButton({ rawgId, title, className }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<number | null>(null);
+  // Portal mount guard — Next.js renders this component's shell on the server
+  // where `document` doesn't exist. We only render the portal post-hydration.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const load = useCallback(async () => {
     if (fetchedFor.current === rawgId) return;
@@ -86,7 +91,7 @@ export function GameInfoButton({ rawgId, title, className }: Props) {
         <Info className="h-4 w-4" />
       </button>
 
-      {open && (
+      {open && mounted && createPortal(
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6"
           onClick={onClose}
@@ -143,7 +148,8 @@ export function GameInfoButton({ rawgId, title, className }: Props) {
               </span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
