@@ -203,25 +203,13 @@ export async function notifyPasswordChange() {
     return { ok: false as const, error: "Email not configured." };
   }
 
-  const when = new Date().toUTCString();
+  const siteUrl = "https://nextquests.com";
   const { error } = await resend.emails.send({
     from: emailFrom(),
     to: user.email,
     subject: "Your NextQuest password was changed",
-    html: `
-      <div style="font-family:system-ui,sans-serif;max-width:520px;line-height:1.5;color:#111">
-        <h2 style="margin:0 0 12px">Password changed</h2>
-        <p>Your NextQuest password was just changed on <strong>${when}</strong>.</p>
-        <p>If this was you, no action is needed.</p>
-        <p><strong>If you don't recognize this change</strong>, your account may be compromised.
-          Reset your password right away at
-          <a href="https://nextquests.com/forgot-password">nextquests.com/forgot-password</a>
-          — the reset link goes to this inbox, so an attacker can't lock you out as long as
-          you control this email address.</p>
-        <p style="color:#777;font-size:12px;margin-top:24px">You're receiving this because your password just changed on an account registered to ${user.email}.</p>
-      </div>
-    `,
-    text: `Your NextQuest password was just changed on ${when}. If this wasn't you, reset it at https://nextquests.com/forgot-password — the reset link will come to this inbox.`,
+    html: passwordChangedHtml({ email: user.email, siteUrl }),
+    text: `Your NextQuest password was just changed. If this wasn't you, secure your account at ${siteUrl}/login — the reset link will come to this inbox.`,
   });
   if (error) {
     console.error("[notifyPasswordChange] resend error:", error);
@@ -253,4 +241,78 @@ export async function removeCurrentlyPlaying(input: z.input<typeof removeCurrent
 
   revalidatePath("/profile");
   return { ok: true as const };
+}
+
+// Branded "password changed" notification template. Mirrors the styling of the
+// Supabase auth email templates so all NextQuest mail reads consistently.
+function passwordChangedHtml({ email, siteUrl }: { email: string; siteUrl: string }) {
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your NextQuest password was changed</title>
+</head>
+<body style="margin:0; padding:0; background-color:#0a0c18; color:#e5e5e5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#0a0c18">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" align="center" style="max-width:560px; margin:0 auto;">
+
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <div style="font-family: 'Courier New', Courier, monospace; font-size:11px; letter-spacing:0.32em; color:#a78bfa; text-transform:uppercase;">
+                &#9654; NEXTQUEST
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td bgcolor="#0f1226" style="background-color:#0f1226; border:1px solid #2e1065; border-radius:8px; padding:36px 32px;">
+              <h1 style="margin:0 0 12px 0; font-family: 'Courier New', Courier, monospace; font-size:22px; color:#ffffff; letter-spacing:0.04em;">
+                Password updated.
+              </h1>
+              <p style="margin:0 0 24px 0; font-size:15px; line-height:1.6; color:#a3a3a3;">
+                Your NextQuest account password was just changed. You&rsquo;re all set &mdash; sign in with the new one.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 28px 0;">
+                <tr>
+                  <td style="font-family: 'Courier New', Courier, monospace; font-size:12px; color:#737373; padding:10px 14px; background-color:#0a0c18; border:1px solid #1f1f3a; border-radius:4px;">
+                    <span style="color:#525252;">ACCOUNT</span> &nbsp; ${email}
+                  </td>
+                </tr>
+              </table>
+
+              <div style="border-top:1px solid #2e1065; padding-top:20px;">
+                <p style="margin:0 0 12px 0; font-size:13px; color:#fbbf24; font-family: 'Courier New', Courier, monospace; letter-spacing:0.08em; text-transform:uppercase;">
+                  &#9888; Wasn&rsquo;t you?
+                </p>
+                <p style="margin:0 0 16px 0; font-size:13px; color:#a3a3a3; line-height:1.6;">
+                  Someone may have access to your account. Reset your password immediately and review your sign-in methods.
+                </p>
+                <a href="${siteUrl}/login" style="display:inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:13px; font-weight:600; color:#22d3ee; text-decoration:none; border-bottom:1px solid #22d3ee; padding-bottom:1px;">
+                  Secure my account &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding-top:24px;">
+              <p style="margin:0 0 6px 0; font-size:11px; color:#525252; font-family: 'Courier New', Courier, monospace; letter-spacing:0.18em;">
+                SENT FOR YOUR SECURITY.
+              </p>
+              <p style="margin:0; font-size:11px; color:#404040;">
+                You can&rsquo;t reply &mdash; this mailbox isn&rsquo;t monitored.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
