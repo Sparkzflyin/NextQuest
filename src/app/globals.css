@@ -35,6 +35,35 @@ body {
   color: var(--foreground);
 }
 
+/* ── Mobile (iOS/Android) input hardening ── */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  overscroll-behavior-y: none;
+}
+a,
+button,
+[role="button"],
+input[type="submit"],
+input[type="button"],
+label[for],
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(192, 132, 252, 0.18);
+}
+/* Prevent iOS Safari from auto-zooming when a form field is focused
+   (triggers whenever the field's font-size is under 16px) */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* ── Pixel-perfect rendering for retro elements ── */
 .pixelated {
   image-rendering: pixelated;
@@ -64,8 +93,17 @@ body {
       rgba(0, 0, 0, 0.22) 2px,
       rgba(0, 0, 0, 0.22) 3px
     );
-  mix-blend-mode: multiply;
   z-index: 30;
+}
+/* mix-blend-mode is desktop-only: on iOS Safari this filter caused the
+   overlay's compositing layer to occasionally swallow taps on the
+   buttons below, even with pointer-events: none. (hover:hover) +
+   (pointer:fine) matches mouse-driven devices, so touch devices skip it
+   and desktops keep the original filmic look. */
+@media (hover: hover) and (pointer: fine) {
+  .crt-scanlines {
+    mix-blend-mode: multiply;
+  }
 }
 
 /* ── CRT vignette (curved-tube edges) ── */

@@ -28,10 +28,16 @@ export default async function Home() {
 
   return (
     <>
-      {/* CRT overlays: scoped to landing only, unmount on navigation */}
-      <div className="pointer-events-none fixed inset-0 z-50">
-        <div className="crt-scanlines" />
-        <div className="crt-vignette" />
+      {/* CRT overlays: scoped to landing only, unmount on navigation.
+          isolation:isolate + an inline pointer-events lock prevents
+          iOS Safari from ever capturing taps through this layer. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-50"
+        style={{ pointerEvents: "none", isolation: "isolate" }}
+      >
+        <div className="crt-scanlines" style={{ pointerEvents: "none" }} />
+        <div className="crt-vignette" style={{ pointerEvents: "none" }} />
       </div>
 
       <div className="relative left-1/2 -my-8 w-screen -translate-x-1/2 overflow-hidden">

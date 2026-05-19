@@ -55,14 +55,14 @@ export function CookieBanner() {
         <button
           type="button"
           onClick={() => decide("accepted")}
-          className="font-pixel border-2 border-neon-violet bg-violet-950/40 px-4 py-2.5 text-[10px] tracking-widest text-violet-100 transition-all hover:bg-violet-900/60 hover:shadow-[0_0_12px_rgba(192,132,252,0.55)]"
+          className="font-pixel border-2 border-neon-violet bg-violet-950/40 px-4 py-3 text-[10px] tracking-widest text-violet-100 transition-all hover:bg-violet-900/60 hover:shadow-[0_0_12px_rgba(192,132,252,0.55)]"
         >
           ▶ ACCEPT
         </button>
         <button
           type="button"
           onClick={() => decide("declined")}
-          className="font-pixel border-2 border-violet-800/60 px-4 py-2.5 text-[10px] tracking-widest text-violet-300 transition-all hover:border-violet-500 hover:text-violet-100"
+          className="font-pixel border-2 border-violet-800/60 px-4 py-3 text-[10px] tracking-widest text-violet-300 transition-all hover:border-violet-500 hover:text-violet-100"
         >
           DECLINE
         </button>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { LogoutButton } from "./logout-button";
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   signedIn: boolean;
@@ -14,6 +14,12 @@ type Props = {
 export function MobileNav({ signedIn, isAdmin }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.assign("/");
+  };
 
   useEffect(() => {
     setOpen(false);
@@ -58,7 +64,13 @@ export function MobileNav({ signedIn, isAdmin }: Props) {
                     </Link>
                   )}
                   <div className="mt-2 border-t border-violet-900/50 pt-2">
-                    <LogoutButton />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="font-terminal block w-full px-4 py-3 text-left text-xl text-violet-400 transition-colors hover:bg-violet-950/40 hover:text-neon-cyan"
+                    >
+                      Log out
+                    </button>
                   </div>
                 </>
               ) : (
