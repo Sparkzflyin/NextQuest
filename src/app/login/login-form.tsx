@@ -53,7 +53,15 @@ export function LoginForm({ nextPromise }: { nextPromise: Promise<{ next?: strin
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ""}`}
+            className="text-xs text-violet-400 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"
