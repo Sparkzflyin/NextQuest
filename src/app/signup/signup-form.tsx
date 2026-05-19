@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 export function SignupForm() {
   const router = useRouter();
@@ -33,7 +34,17 @@ export function SignupForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <div className="space-y-4">
+      <GoogleSignInButton next="/profile" />
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-neutral-800" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-neutral-950 px-2 text-neutral-500">or with email</span>
+        </div>
+      </div>
+      <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="username">Username</Label>
         <Input
@@ -78,6 +89,7 @@ export function SignupForm() {
           Log in
         </Link>
       </p>
-    </form>
+      </form>
+    </div>
   );
 }
