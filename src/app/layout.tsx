@@ -6,6 +6,7 @@ import { Footer } from "@/components/footer";
 import { CookieBanner } from "@/components/cookie-banner";
 import { AnalyticsGate } from "@/components/analytics-gate";
 import { PWARegister } from "@/components/pwa-register";
+import { IOSInstallHint } from "@/components/ios-install-hint";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const pressStart = Press_Start_2P({
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
         <Footer />
         <CookieBanner />
+        <IOSInstallHint />
         <AnalyticsGate />
         <PWARegister />
       </body>
