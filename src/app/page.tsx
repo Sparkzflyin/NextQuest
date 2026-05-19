@@ -73,7 +73,7 @@ export default async function Home() {
             </span>
 
             <p className="font-terminal mb-4 text-xl tracking-[0.3em] text-violet-300/70">
-              ─── NOW ENTERING ───
+              {user ? "─── WELCOME BACK ───" : "─── NOW ENTERING ───"}
             </p>
 
             <h1 className="font-pixel chroma-split mb-6 text-4xl leading-[1.15] sm:text-6xl md:text-7xl">
@@ -94,42 +94,97 @@ export default async function Home() {
 
             {/* menu CTAs — JRPG style */}
             <div className="font-pixel mx-auto mt-8 flex max-w-md flex-col items-stretch gap-3 text-xs sm:text-sm">
-              <Link
-                href="/signup"
-                className="group relative flex items-center justify-between border-2 border-neon-violet bg-violet-950/30 px-5 py-4 text-violet-100 transition-all hover:bg-violet-900/40 hover:shadow-[0_0_24px_rgba(192,132,252,0.6)]"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="press-pulse text-neon-cyan neon-cyan">▶</span>
-                  <span className="neon-violet">PRESS START</span>
-                </span>
-                <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-400/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-400 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-                  NEW ACCOUNT
-                </span>
-              </Link>
-              <Link
-                href="/login"
-                className="group relative flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="opacity-50 group-hover:opacity-100">▷</span>
-                  <span>CONTINUE</span>
-                </span>
-                <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-500/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-500 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-                  LOGIN
-                </span>
-              </Link>
-              <Link
-                href="/leaderboards"
-                className="group flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="opacity-50 group-hover:opacity-100">▷</span>
-                  <span>VIEW LEADERBOARDS</span>
-                </span>
-                <span className="text-violet-500 opacity-0 transition-opacity group-hover:opacity-100">
-                  HALL OF FAME
-                </span>
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    href="/log"
+                    className="group relative flex items-center justify-between border-2 border-neon-violet bg-violet-950/30 px-5 py-4 text-violet-100 transition-all hover:bg-violet-900/40 hover:shadow-[0_0_24px_rgba(192,132,252,0.6)]"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="press-pulse text-neon-cyan neon-cyan">▶</span>
+                      <span className="neon-violet">LOG A GAME</span>
+                    </span>
+                    <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-400/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-400 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      RATE + REVIEW
+                    </span>
+                  </Link>
+                  <Link
+                    href="/swipe"
+                    className="group relative flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="opacity-50 group-hover:opacity-100">▷</span>
+                      <span>SWIPE DECK</span>
+                    </span>
+                    <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-500/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-500 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      DISCOVER
+                    </span>
+                  </Link>
+                  <Link
+                    href="/recommendations"
+                    className="group relative flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="opacity-50 group-hover:opacity-100">▷</span>
+                      <span>FOR YOU</span>
+                    </span>
+                    <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-500/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-500 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      PICKS
+                    </span>
+                  </Link>
+                  <Link
+                    href="/leaderboards"
+                    className="group flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="opacity-50 group-hover:opacity-100">▷</span>
+                      <span>VIEW LEADERBOARDS</span>
+                    </span>
+                    <span className="text-violet-500 opacity-0 transition-opacity group-hover:opacity-100">
+                      HALL OF FAME
+                    </span>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/signup"
+                    className="group relative flex items-center justify-between border-2 border-neon-violet bg-violet-950/30 px-5 py-4 text-violet-100 transition-all hover:bg-violet-900/40 hover:shadow-[0_0_24px_rgba(192,132,252,0.6)]"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="press-pulse text-neon-cyan neon-cyan">▶</span>
+                      <span className="neon-violet">PRESS START</span>
+                    </span>
+                    <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-400/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-400 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      NEW ACCOUNT
+                    </span>
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="group relative flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="opacity-50 group-hover:opacity-100">▷</span>
+                      <span>CONTINUE</span>
+                    </span>
+                    <span className="absolute right-3 bottom-1.5 text-[10px] tracking-widest text-violet-500/70 sm:static sm:right-auto sm:bottom-auto sm:text-sm sm:tracking-normal sm:text-violet-500 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      LOGIN
+                    </span>
+                  </Link>
+                  <Link
+                    href="/leaderboards"
+                    className="group flex items-center justify-between border-2 border-violet-800/60 px-5 py-4 text-violet-300/80 transition-all hover:border-violet-500 hover:text-violet-100"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="opacity-50 group-hover:opacity-100">▷</span>
+                      <span>VIEW LEADERBOARDS</span>
+                    </span>
+                    <span className="text-violet-500 opacity-0 transition-opacity group-hover:opacity-100">
+                      HALL OF FAME
+                    </span>
+                  </Link>
+                </>
+              )}
             </div>
 
             <p className="font-pixel mt-12 text-[10px] tracking-widest text-violet-500/60">
@@ -265,7 +320,7 @@ export default async function Home() {
         {/* ── BOTTOM ATTRACT STRIP ── */}
         <div className="font-pixel border-t border-violet-900/40 bg-[#0a0c18]/80 px-6 py-3 text-center text-[10px] tracking-widest text-violet-400/80">
           <span className="neon-cyan">▮</span>
-          <span className="mx-3">PRESS START TO PLAY</span>
+          <span className="mx-3">{user ? "QUEST IN PROGRESS" : "PRESS START TO PLAY"}</span>
           <span className="blink neon-cyan">▮</span>
         </div>
       </div>
