@@ -14,6 +14,7 @@ export function ProfileForm({
   initialPlaystyles,
   initialExcludedGenres,
   initialExcludedTags,
+  initialAllowNsfw,
   allGenres,
   allPlaystyles,
 }: {
@@ -22,6 +23,7 @@ export function ProfileForm({
   initialPlaystyles: string[];
   initialExcludedGenres: string[];
   initialExcludedTags: string[];
+  initialAllowNsfw: boolean;
   allGenres: string[];
   allPlaystyles: string[];
 }) {
@@ -30,6 +32,7 @@ export function ProfileForm({
   const [playstyles, setPlaystyles] = useState<string[]>(initialPlaystyles);
   const [excludedGenres, setExcludedGenres] = useState<string[]>(initialExcludedGenres);
   const [excludedTags, setExcludedTags] = useState<string[]>(initialExcludedTags);
+  const [allowNsfw, setAllowNsfw] = useState<boolean>(initialAllowNsfw);
   const [genreQuery, setGenreQuery] = useState("");
   const [playstyleQuery, setPlaystyleQuery] = useState("");
   const [excludedGenreQuery, setExcludedGenreQuery] = useState("");
@@ -105,6 +108,7 @@ export function ProfileForm({
         playstyles,
         excludedGenres,
         excludedTags,
+        allowNsfw,
       });
       setStatus(
         result.ok
@@ -219,6 +223,47 @@ export function ProfileForm({
             })
           )}
         </div>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-red-900/40 bg-red-950/10 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <Label htmlFor="allow-nsfw-toggle" className="text-red-200">
+              Show NSFW games
+            </Label>
+            <p className="text-sm text-neutral-400">
+              <span className="font-medium text-neutral-300">Off by default</span> — for everyone,
+              logged in or not. While off, no adult-flagged titles appear on For You, Swipe, or
+              Leaderboards. Flip on only if you want explicit content surfaced.
+            </p>
+          </div>
+          <button
+            id="allow-nsfw-toggle"
+            type="button"
+            role="switch"
+            aria-checked={allowNsfw}
+            onClick={() => setAllowNsfw((v) => !v)}
+            className={cn(
+              "relative mt-1 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
+              allowNsfw
+                ? "border-red-500 bg-red-600/40"
+                : "border-neutral-700 bg-neutral-900",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                allowNsfw ? "translate-x-6" : "translate-x-1",
+              )}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-neutral-500">
+          Status:{" "}
+          <span className={allowNsfw ? "text-red-300" : "text-emerald-400"}>
+            {allowNsfw ? "Adult content allowed" : "Adult content blocked"}
+          </span>
+        </p>
       </div>
 
       <div className="space-y-3 rounded-md border border-red-900/40 bg-red-950/10 p-4">

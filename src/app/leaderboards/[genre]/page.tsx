@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { canonicalGenres, games, votes } from "@/lib/db/schema";
+import { canonicalGenres, games, profiles, votes } from "@/lib/db/schema";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function GenreLeaderboard({ params }: { params: Promise<{ genre: string }> }) {
   const { genre: raw } = await params;
@@ -13,6 +14,25 @@ export default async function GenreLeaderboard({ params }: { params: Promise<{ g
     .where(eq(canonicalGenres.name, genre))
     .limit(1);
   if (!exists) notFound();
+
+  // Same gate as the leaderboard index — anonymous and opted-out users get the
+  // safe view; only an explicit allowNsfw=true unlocks adult titles.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let allowNsfw = false;
+  if (user) {
+    const [row] = await db
+      .select({ allowNsfw: profiles.allowNsfw })
+      .from(profiles)
+      .where(eq(profiles.id, user.id));
+    allowNsfw = row?.allowNsfw ?? false;
+  }
+
+  const whereClause = allowNsfw
+    ? sql`${genre} = ANY(${games.genres})`
+    : and(sql`${genre} = ANY(${games.genres})`, eq(games.isNsfw, false));
 
   const rows = await db
     .select({
@@ -25,7 +45,7 @@ export default async function GenreLeaderboard({ params }: { params: Promise<{ g
     })
     .from(games)
     .leftJoin(votes, sql`${votes.gameId} = ${games.id}`)
-    .where(sql`${genre} = ANY(${games.genres})`)
+    .where(whereClause)
     .groupBy(games.id)
     .orderBy(sql`coalesce(sum(${votes.value}), 0) desc`, sql`count(${votes.userId}) desc`)
     .limit(20);
@@ -37,6 +57,20 @@ export default async function GenreLeaderboard({ params }: { params: Promise<{ g
           <span className="text-violet-400">{genre}</span> · Top 20
         </h1>
         <p className="text-sm text-neutral-400">Ranked by net upvotes.</p>
+        {!allowNsfw && (
+          <p className="mt-2 text-xs text-red-300/80">
+            Adult content hidden ·{" "}
+            {user ? (
+              <Link href="/profile" className="underline hover:text-red-200">
+                manage in profile
+              </Link>
+            ) : (
+              <Link href="/login" className="underline hover:text-red-200">
+                sign in to manage
+              </Link>
+            )}
+          </p>
+        )}
       </div>
       {rows.length === 0 ? (
         <p className="text-sm text-neutral-500">

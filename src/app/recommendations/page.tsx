@@ -2,6 +2,7 @@ import Link from "next/link";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  profiles,
   swipes,
   userExcludedGames,
   userExcludedGenres,
@@ -14,6 +15,7 @@ import { loadLocalRecommendations } from "@/lib/recommendations";
 import { Card } from "@/components/ui/card";
 import { CardActions } from "./card-actions";
 import { RefreshFeedButton } from "./refresh-button";
+import { isNsfwFromRawg } from "@/lib/nsfw";
 
 const TARGET_RESULTS = 24;
 const UPCOMING_LIMIT = 6;
@@ -42,6 +44,15 @@ export default async function RecommendationsPage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // Honor the per-user NSFW gate. Default off — anonymous-ish defaults take
+  // care of the case where the profile row hasn't been written yet (new user
+  // bouncing off the trigger before they ever opened /profile).
+  const [profileRow] = await db
+    .select({ allowNsfw: profiles.allowNsfw })
+    .from(profiles)
+    .where(eq(profiles.id, user.id));
+  const allowNsfw = profileRow?.allowNsfw ?? false;
+
   // Ranking happens in loadLocalRecommendations (shared with /swipe). Helper
   // normalizes Postgres text[] columns into real JS string arrays.
   // Pull a larger pool so the refresh button rotates the visible 24 across
@@ -50,7 +61,7 @@ export default async function RecommendationsPage() {
   const localPool = await loadLocalRecommendations(
     user.id,
     TARGET_RESULTS * LOCAL_POOL_MULTIPLIER,
-    { excludeSwiped: true },
+    { excludeSwiped: true, allowNsfw },
   );
   const localRecs = shuffleInPlace([...localPool]).slice(0, TARGET_RESULTS);
 
@@ -94,6 +105,7 @@ export default async function RecommendationsPage() {
     coverUrl: string | null;
     genres: string[];
     released: string | null;
+    tags?: string[];
   };
   let rawgFill: RawgRec[] = [];
   const fillNeeded = TARGET_RESULTS - localRecs.length;
@@ -145,6 +157,9 @@ export default async function RecommendationsPage() {
           if (excludedRawgSet.has(g.rawgId)) continue;
           if (swipedSet.has(g.rawgId)) continue;
           if (wishlistSet.has(g.rawgId)) continue;
+          // NSFW gate also applies to RAWG-only catalog hits — the game has no
+          // local row yet, so we re-check RAWG's tag/genre payload directly.
+          if (!allowNsfw && isNsfwFromRawg({ genres: g.genres, tags: g.tags })) continue;
           rawgFill.push(g);
           seen.add(g.rawgId);
           addedFromThisPage++;
@@ -176,7 +191,8 @@ export default async function RecommendationsPage() {
         (g) =>
           !g.genres.some((gn) => excludedGenreSet.has(gn.toLowerCase())) &&
           !excludedRawgSet.has(g.rawgId) &&
-          !swipedSet.has(g.rawgId),
+          !swipedSet.has(g.rawgId) &&
+          (allowNsfw || !isNsfwFromRawg({ genres: g.genres, tags: g.tags })),
       );
       upcoming = shuffleInPlace([...filtered]).slice(0, UPCOMING_LIMIT);
     } catch {
@@ -199,6 +215,14 @@ export default async function RecommendationsPage() {
             <span className="text-rose-400">♥</span> to wishlist or{" "}
             <span className="text-red-400">×</span> to hide.
           </p>
+          {!allowNsfw && (
+            <p className="mt-2 text-xs text-red-300/80">
+              Adult content hidden ·{" "}
+              <Link href="/profile" className="underline hover:text-red-200">
+                manage in profile
+              </Link>
+            </p>
+          )}
         </div>
         <div className="shrink-0">
           <RefreshFeedButton />

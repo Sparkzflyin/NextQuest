@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import {
+  profiles,
   swipes,
   userExcludedGames,
   userGenres,
@@ -15,6 +16,7 @@ import {
 import { getSwipesUsedToday, MAX_DAILY_SWIPES } from "@/lib/credits";
 import { loadLocalRecommendations, type RecommendationRow } from "@/lib/recommendations";
 import { browseByGenres } from "@/lib/rawg";
+import { isNsfwFromRawg } from "@/lib/nsfw";
 
 const ACTIONS = ["like", "dislike", "wishlist", "skip"] as const;
 const swipeSchema = z.object({
@@ -106,13 +108,21 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not signed in.", cards: [] };
 
+  // Honor the per-user NSFW gate before we touch the catalog. Default off so
+  // a brand-new profile sees zero adult content even before they visit /profile.
+  const [profileRow] = await db
+    .select({ allowNsfw: profiles.allowNsfw })
+    .from(profiles)
+    .where(eq(profiles.id, user.id));
+  const allowNsfw = profileRow?.allowNsfw ?? false;
+
   // Pull a wider pool than we need and shuffle so the deck rotates picks from
   // the user's top-matched tier instead of always serving the same top-N.
   // Combined with excludeSwiped this is what makes the Refresh button useful.
   const pool: RecommendationRow[] = await loadLocalRecommendations(
     user.id,
     parsed.data.count * 2,
-    { excludeSwiped: true },
+    { excludeSwiped: true, allowNsfw },
   );
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -174,6 +184,9 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
           if (cards.length >= parsed.data.count) break;
           if (seen.has(g.rawgId)) continue;
           if (swipedSet.has(g.rawgId)) continue;
+          // NSFW gate: RAWG-only cards aren't in our games table yet, so we
+          // re-check from the RAWG payload (tags now surfaced via browseByGenres).
+          if (!allowNsfw && isNsfwFromRawg({ genres: g.genres, tags: g.tags })) continue;
           cards.push({
             rawgId: g.rawgId,
             gameId: null,
@@ -181,7 +194,7 @@ export async function fetchSwipeQueue(input: z.input<typeof fetchSchema>) {
             coverUrl: g.coverUrl,
             released: g.released,
             genres: g.genres,
-            tags: [],
+            tags: g.tags ?? [],
             matchScore: null,
             description: null,
           });

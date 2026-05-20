@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { fetchGame } from "@/lib/rawg";
 import { LENGTHS, PLATFORMS } from "@/lib/constants";
 import { sanitizeTag } from "@/lib/tags";
+import { isNsfwFromRawg } from "@/lib/nsfw";
 
 const schema = z.object({
   rawgId: z.number().int().positive(),
@@ -50,6 +51,7 @@ export async function logGame(input: z.input<typeof schema>) {
     let [game] = await db.select().from(games).where(eq(games.rawgId, parsed.data.rawgId));
     if (!game) {
       const meta = await fetchGame(parsed.data.rawgId);
+      const isNsfw = isNsfwFromRawg({ genres: meta.genres, tags: meta.tags });
       [game] = await db
         .insert(games)
         .values({
@@ -60,10 +62,17 @@ export async function logGame(input: z.input<typeof schema>) {
           released: meta.released,
           genres: meta.genres,
           tags: meta.tags,
+          isNsfw,
         })
         .onConflictDoUpdate({
           target: games.rawgId,
-          set: { title: meta.title, coverUrl: meta.coverUrl, genres: meta.genres, tags: meta.tags },
+          set: {
+            title: meta.title,
+            coverUrl: meta.coverUrl,
+            genres: meta.genres,
+            tags: meta.tags,
+            isNsfw,
+          },
         })
         .returning();
 

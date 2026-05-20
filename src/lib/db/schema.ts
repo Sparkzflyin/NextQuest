@@ -19,6 +19,9 @@ export const profiles = pgTable("profiles", {
   username: text("username").notNull().unique(),
   avatarUrl: text("avatar_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Strict NSFW gate. Default off — users must opt in from /profile before any
+  // adult-flagged game can surface on For You / Swipe / Leaderboards.
+  allowNsfw: boolean("allow_nsfw").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -37,9 +40,17 @@ export const games = pgTable(
     // Nullable so existing rows don't need a backfill — null just means
     // "fetch from RAWG next time someone asks".
     description: text("description"),
+    // Adult-content gate. True for anything matched by isNsfwFromRawg() —
+    // RAWG-tagged "Nudity"/"Sexual Content"/"Hentai", or the "adult" genre.
+    // Stamped on insert/upsert in logGame + addCurrentlyPlaying; existing
+    // rows are backfilled by the migration's heuristic SQL.
+    isNsfw: boolean("is_nsfw").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("games_genres_gin").using("gin", t.genres)],
+  (t) => [
+    index("games_genres_gin").using("gin", t.genres),
+    index("games_is_nsfw_idx").on(t.isNsfw),
+  ],
 );
 
 export const reviews = pgTable(

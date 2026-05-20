@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { profiles } from "@/lib/db/schema";
 import { Card } from "@/components/ui/card";
 import { getSwipesUsedToday, MAX_DAILY_SWIPES } from "@/lib/credits";
 import { fetchSwipeQueue, type SwipeCard } from "./actions";
@@ -19,6 +22,12 @@ export default async function SwipePage() {
   const usedToday = await getSwipesUsedToday(user.id);
   const remaining = Math.max(0, MAX_DAILY_SWIPES - usedToday);
 
+  const [profileRow] = await db
+    .select({ allowNsfw: profiles.allowNsfw })
+    .from(profiles)
+    .where(eq(profiles.id, user.id));
+  const allowNsfw = profileRow?.allowNsfw ?? false;
+
   const result = await fetchSwipeQueue({ count: INITIAL_QUEUE });
   const initialCards: SwipeCard[] = result.ok ? result.cards : [];
 
@@ -34,6 +43,14 @@ export default async function SwipePage() {
             ? `${remaining} of ${MAX_DAILY_SWIPES} credit-earning swipes left today`
             : `Daily credit cap hit — keep swiping for fun, no more credits today`}
         </p>
+        {!allowNsfw && (
+          <p className="mt-1 text-xs text-red-300/80">
+            Adult content hidden ·{" "}
+            <Link href="/profile" className="underline hover:text-red-200">
+              manage in profile
+            </Link>
+          </p>
+        )}
       </div>
 
       {initialCards.length === 0 ? (

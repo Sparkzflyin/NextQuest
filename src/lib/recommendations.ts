@@ -59,16 +59,20 @@ function toStringArray(value: unknown): string[] {
 // Local-catalog recommendations, ranked by the same match_score the FYP page
 // uses. excludeSwiped=true drops anything the user has ever swiped on so the
 // feed never resurfaces a game they already responded to.
+// allowNsfw controls the adult-content gate — when false (the default), every
+// games.is_nsfw=true row is filtered out at SQL time so nothing leaks through.
 export async function loadLocalRecommendations(
   userId: string,
   limit: number,
-  opts: { excludeSwiped?: boolean } = {},
+  opts: { excludeSwiped?: boolean; allowNsfw?: boolean } = {},
 ): Promise<RecommendationRow[]> {
   const swipeFilter = opts.excludeSwiped
     ? sql`and g.rawg_id not in (
         select rawg_id from public.swipes where user_id = ${userId}
       )`
     : sql``;
+
+  const nsfwFilter = opts.allowNsfw ? sql`` : sql`and g.is_nsfw = false`;
 
   const rows = await db.execute(sql`
     with
@@ -147,6 +151,7 @@ export async function loadLocalRecommendations(
       and not exists (
         select 1 from excluded_tags et where et.tag = any(g.tags)
       )
+      ${nsfwFilter}
       ${swipeFilter}
     order by match_score desc, community_score desc
     limit ${limit}

@@ -85,6 +85,9 @@ export async function browseByGenres({
     coverUrl: g.background_image,
     released: g.released,
     genres: g.genres.map((x) => x.name),
+    // Surface a few tags so callers can NSFW-gate before persisting the row.
+    // RAWG's list endpoint already returns tags inline — no extra round-trip.
+    tags: (g.tags ?? []).slice(0, 20).map((x) => x.name),
   }));
 }
 
@@ -125,6 +128,7 @@ export async function browseUpcomingByGenres({
     coverUrl: g.background_image,
     released: g.released,
     genres: g.genres.map((x) => x.name),
+    tags: (g.tags ?? []).slice(0, 20).map((x) => x.name),
   }));
 }
 

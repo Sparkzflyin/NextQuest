@@ -1,15 +1,34 @@
 import Link from "next/link";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { canonicalGenres } from "@/lib/db/schema";
+import { canonicalGenres, profiles } from "@/lib/db/schema";
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 export default async function LeaderboardsIndex() {
+  // Anonymous viewers (no auth) and opted-out users see only SFW counts.
+  // Only flip the gate open when the signed-in user has explicitly enabled it.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let allowNsfw = false;
+  if (user) {
+    const [row] = await db
+      .select({ allowNsfw: profiles.allowNsfw })
+      .from(profiles)
+      .where(eq(profiles.id, user.id));
+    allowNsfw = row?.allowNsfw ?? false;
+  }
+
   // Game count per genre — games.genres is a text[] so we lateral-unnest and group.
+  // NSFW filter folds into the join condition so counts reflect what the user
+  // will actually see when they enter a board.
+  const nsfwCond = allowNsfw ? sql`` : sql`and g.is_nsfw = false`;
   const rows = await db.execute<{ name: string; game_count: number }>(sql`
     select cg.name as name, count(g.id)::int as game_count
     from public.canonical_genres cg
-    left join public.games g on cg.name = any(g.genres)
+    left join public.games g on cg.name = any(g.genres) ${nsfwCond}
     group by cg.name
     order by cg.name asc
   `);
@@ -37,6 +56,20 @@ export default async function LeaderboardsIndex() {
             GAMES LOGGED: <span className="text-neon-cyan neon-cyan">{totalGames}</span>
           </span>
         </div>
+        {!allowNsfw && (
+          <p className="font-pixel mt-3 text-[10px] tracking-widest text-red-300/80">
+            ▮ ADULT CONTENT HIDDEN ·{" "}
+            {user ? (
+              <Link href="/profile" className="underline hover:text-red-200">
+                MANAGE IN PROFILE
+              </Link>
+            ) : (
+              <Link href="/login" className="underline hover:text-red-200">
+                SIGN IN TO MANAGE
+              </Link>
+            )}
+          </p>
+        )}
       </header>
 
       {/* ── Cabinet grid ── */}

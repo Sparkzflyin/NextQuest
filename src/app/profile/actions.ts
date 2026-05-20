@@ -18,6 +18,7 @@ import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { fetchGame } from "@/lib/rawg";
 import { sanitizeTag } from "@/lib/tags";
 import { getResend, emailFrom } from "@/lib/email";
+import { isNsfwFromRawg } from "@/lib/nsfw";
 
 const schema = z.object({
   username: z
@@ -31,6 +32,7 @@ const schema = z.object({
   playstyles: z.array(z.string()),
   excludedGenres: z.array(z.string()),
   excludedTags: z.array(z.string()),
+  allowNsfw: z.boolean(),
 });
 
 export async function saveProfile(input: {
@@ -39,6 +41,7 @@ export async function saveProfile(input: {
   playstyles: string[];
   excludedGenres: string[];
   excludedTags: string[];
+  allowNsfw: boolean;
 }) {
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Invalid input." };
@@ -81,10 +84,17 @@ export async function saveProfile(input: {
   try {
     await db
       .insert(profiles)
-      .values({ id: user.id, username: parsed.data.username })
+      .values({
+        id: user.id,
+        username: parsed.data.username,
+        allowNsfw: parsed.data.allowNsfw,
+      })
       .onConflictDoUpdate({
         target: profiles.id,
-        set: { username: parsed.data.username },
+        set: {
+          username: parsed.data.username,
+          allowNsfw: parsed.data.allowNsfw,
+        },
       });
 
     await syncSet(userGenres, "genre", allowedGenres, user.id);
@@ -98,6 +108,8 @@ export async function saveProfile(input: {
 
   revalidatePath("/profile");
   revalidatePath("/recommendations");
+  revalidatePath("/swipe");
+  revalidatePath("/leaderboards");
   return { ok: true as const };
 }
 
@@ -154,6 +166,7 @@ export async function addCurrentlyPlaying(input: z.input<typeof addCurrentlySche
     let [game] = await db.select().from(games).where(eq(games.rawgId, parsed.data.rawgId));
     if (!game) {
       const meta = await fetchGame(parsed.data.rawgId);
+      const isNsfw = isNsfwFromRawg({ genres: meta.genres, tags: meta.tags });
       [game] = await db
         .insert(games)
         .values({
@@ -164,10 +177,17 @@ export async function addCurrentlyPlaying(input: z.input<typeof addCurrentlySche
           released: meta.released,
           genres: meta.genres,
           tags: meta.tags,
+          isNsfw,
         })
         .onConflictDoUpdate({
           target: games.rawgId,
-          set: { title: meta.title, coverUrl: meta.coverUrl, genres: meta.genres, tags: meta.tags },
+          set: {
+            title: meta.title,
+            coverUrl: meta.coverUrl,
+            genres: meta.genres,
+            tags: meta.tags,
+            isNsfw,
+          },
         })
         .returning();
     }
