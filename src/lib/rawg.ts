@@ -34,6 +34,9 @@ export async function searchGames(query: string, limit = 10) {
     coverUrl: g.background_image,
     released: g.released,
     genres: g.genres.map((x) => x.name),
+    // Surface tags so callers can NSFW-gate the search picker before showing
+    // results to a user whose allow_nsfw is off.
+    tags: (g.tags ?? []).slice(0, 20).map((x) => x.name),
   }));
 }
 

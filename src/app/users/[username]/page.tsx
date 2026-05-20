@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { profiles, userCurrentlyPlaying, reviews, games } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
@@ -21,6 +22,26 @@ export default async function PublicProfilePage({
     .from(profiles)
     .where(eq(profiles.username, decoded));
   if (!profile) notFound();
+
+  // Privacy gate. Viewer can see the full page only if they're the owner, an
+  // admin, or the profile isn't private. Anyone else gets the stub at the
+  // bottom of this file — username + avatar + "this profile is private" only.
+  const supabase = await createClient();
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  const isOwner = !!viewer && viewer.id === profile.id;
+  let isAdmin = false;
+  if (viewer && !isOwner) {
+    const [me] = await db
+      .select({ isAdmin: profiles.isAdmin })
+      .from(profiles)
+      .where(eq(profiles.id, viewer.id));
+    isAdmin = !!me?.isAdmin;
+  }
+  if (profile.isPrivate && !isOwner && !isAdmin) {
+    return <PrivateProfileStub avatarUrl={profile.avatarUrl} username={profile.username} />;
+  }
 
   const currentlyPlaying = await db
     .select({
@@ -146,6 +167,33 @@ export default async function PublicProfilePage({
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+// Minimal placeholder shown to non-owner / non-admin viewers when the profile
+// has is_private = true. No logs, no currently-playing — just identity so a
+// direct link still resolves (vs. a flat 404 that would also hide existence).
+function PrivateProfileStub({
+  avatarUrl,
+  username,
+}: {
+  avatarUrl: string | null;
+  username: string;
+}) {
+  return (
+    <div className="mx-auto max-w-2xl space-y-6 py-8">
+      <header className="flex items-center gap-4">
+        <Avatar avatarUrl={avatarUrl} username={username} size={80} />
+        <div>
+          <h1 className="text-2xl font-semibold">{username}</h1>
+          <p className="text-xs text-violet-300/80">Private profile</p>
+        </div>
+      </header>
+      <p className="rounded-md border border-violet-900/40 bg-violet-950/10 p-4 text-sm text-neutral-400">
+        This user has hidden their currently-playing list and logs. Reviews they post on game
+        pages also don&apos;t appear publicly.
+      </p>
     </div>
   );
 }

@@ -22,6 +22,10 @@ export const profiles = pgTable("profiles", {
   // Strict NSFW gate. Default off — users must opt in from /profile before any
   // adult-flagged game can surface on For You / Swipe / Leaderboards.
   allowNsfw: boolean("allow_nsfw").notNull().default(false),
+  // Privacy gate. When true, other users (besides admins) can't see this
+  // profile's currently-playing list, logs, or reviews on game pages. Default
+  // off so behavior matches what existed before the column was added.
+  isPrivate: boolean("is_private").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

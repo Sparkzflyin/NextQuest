@@ -15,6 +15,7 @@ export function ProfileForm({
   initialExcludedGenres,
   initialExcludedTags,
   initialAllowNsfw,
+  initialIsPrivate,
   allGenres,
   allPlaystyles,
 }: {
@@ -24,6 +25,7 @@ export function ProfileForm({
   initialExcludedGenres: string[];
   initialExcludedTags: string[];
   initialAllowNsfw: boolean;
+  initialIsPrivate: boolean;
   allGenres: string[];
   allPlaystyles: string[];
 }) {
@@ -33,6 +35,7 @@ export function ProfileForm({
   const [excludedGenres, setExcludedGenres] = useState<string[]>(initialExcludedGenres);
   const [excludedTags, setExcludedTags] = useState<string[]>(initialExcludedTags);
   const [allowNsfw, setAllowNsfw] = useState<boolean>(initialAllowNsfw);
+  const [isPrivate, setIsPrivate] = useState<boolean>(initialIsPrivate);
   const [genreQuery, setGenreQuery] = useState("");
   const [playstyleQuery, setPlaystyleQuery] = useState("");
   const [excludedGenreQuery, setExcludedGenreQuery] = useState("");
@@ -109,6 +112,7 @@ export function ProfileForm({
         excludedGenres,
         excludedTags,
         allowNsfw,
+        isPrivate,
       });
       setStatus(
         result.ok
@@ -223,6 +227,47 @@ export function ProfileForm({
             })
           )}
         </div>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-violet-900/40 bg-violet-950/10 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <Label htmlFor="is-private-toggle" className="text-violet-200">
+              Private profile
+            </Label>
+            <p className="text-sm text-neutral-400">
+              <span className="font-medium text-neutral-300">Off by default.</span> When on, your
+              currently-playing list and logs are hidden from everyone except you and admins. Your
+              reviews on game pages also stop showing up publicly.
+            </p>
+          </div>
+          <button
+            id="is-private-toggle"
+            type="button"
+            role="switch"
+            aria-checked={isPrivate}
+            onClick={() => setIsPrivate((v) => !v)}
+            className={cn(
+              "relative mt-1 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
+              isPrivate
+                ? "border-violet-500 bg-violet-600/40"
+                : "border-neutral-700 bg-neutral-900",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                isPrivate ? "translate-x-6" : "translate-x-1",
+              )}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-neutral-500">
+          Status:{" "}
+          <span className={isPrivate ? "text-violet-300" : "text-emerald-400"}>
+            {isPrivate ? "Profile hidden from other users" : "Profile public"}
+          </span>
+        </p>
       </div>
 
       <div className="space-y-3 rounded-md border border-red-900/40 bg-red-950/10 p-4">

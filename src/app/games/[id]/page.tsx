@@ -26,13 +26,31 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   } = await supabase.auth.getUser();
 
   let myVote: -1 | 0 | 1 = 0;
+  let viewerIsAdmin = false;
   if (user) {
     const [mine] = await db
       .select({ value: votes.value })
       .from(votes)
       .where(and(eq(votes.userId, user.id), eq(votes.gameId, id)));
     if (mine) myVote = mine.value === 1 ? 1 : -1;
+    const [me] = await db
+      .select({ isAdmin: profiles.isAdmin })
+      .from(profiles)
+      .where(eq(profiles.id, user.id));
+    viewerIsAdmin = !!me?.isAdmin;
   }
+
+  // Privacy filter for reviews: hide private reviewers from everyone except
+  // themselves and admins. Stacks with the existing status filter so a private
+  // user still sees their own pending/rejected logs.
+  const statusFilter = user
+    ? or(eq(reviews.status, "approved"), eq(reviews.userId, user.id))!
+    : eq(reviews.status, "approved");
+  const privacyFilter = viewerIsAdmin
+    ? undefined
+    : user
+      ? or(eq(profiles.isPrivate, false), eq(reviews.userId, user.id))!
+      : eq(profiles.isPrivate, false);
 
   const reviewRows = await db
     .select({
@@ -57,12 +75,9 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
     .from(reviews)
     .innerJoin(profiles, eq(profiles.id, reviews.userId))
     .where(
-      and(
-        eq(reviews.gameId, id),
-        user
-          ? or(eq(reviews.status, "approved"), eq(reviews.userId, user.id))!
-          : eq(reviews.status, "approved"),
-      ),
+      privacyFilter
+        ? and(eq(reviews.gameId, id), statusFilter, privacyFilter)
+        : and(eq(reviews.gameId, id), statusFilter),
     )
     .orderBy(desc(reviews.createdAt))
     .limit(50);

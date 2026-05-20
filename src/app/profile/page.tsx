@@ -202,6 +202,7 @@ export default async function ProfilePage() {
         initialExcludedGenres={excludedGenres.map((g) => g.genre)}
         initialExcludedTags={excludedTags.map((t) => t.tag)}
         initialAllowNsfw={profile?.allowNsfw ?? false}
+        initialIsPrivate={profile?.isPrivate ?? false}
         allGenres={allGenres.map((r) => r.name)}
         allPlaystyles={allPlaystyles.map((r) => r.name)}
       />

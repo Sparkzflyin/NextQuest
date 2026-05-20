@@ -33,6 +33,7 @@ const schema = z.object({
   excludedGenres: z.array(z.string()),
   excludedTags: z.array(z.string()),
   allowNsfw: z.boolean(),
+  isPrivate: z.boolean(),
 });
 
 export async function saveProfile(input: {
@@ -42,6 +43,7 @@ export async function saveProfile(input: {
   excludedGenres: string[];
   excludedTags: string[];
   allowNsfw: boolean;
+  isPrivate: boolean;
 }) {
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Invalid input." };
@@ -88,12 +90,14 @@ export async function saveProfile(input: {
         id: user.id,
         username: parsed.data.username,
         allowNsfw: parsed.data.allowNsfw,
+        isPrivate: parsed.data.isPrivate,
       })
       .onConflictDoUpdate({
         target: profiles.id,
         set: {
           username: parsed.data.username,
           allowNsfw: parsed.data.allowNsfw,
+          isPrivate: parsed.data.isPrivate,
         },
       });
 
