@@ -10,6 +10,7 @@ import { fetchGame } from "@/lib/rawg";
 import { LENGTHS, PLATFORMS } from "@/lib/constants";
 import { sanitizeTag } from "@/lib/tags";
 import { isNsfwFromRawg } from "@/lib/nsfw";
+import { isVrFromRawg } from "@/lib/vr";
 
 const schema = z.object({
   rawgId: z.number().int().positive(),
@@ -52,6 +53,7 @@ export async function logGame(input: z.input<typeof schema>) {
     if (!game) {
       const meta = await fetchGame(parsed.data.rawgId);
       const isNsfw = isNsfwFromRawg({ genres: meta.genres, tags: meta.tags });
+      const isVr = isVrFromRawg({ tags: meta.tags });
       [game] = await db
         .insert(games)
         .values({
@@ -63,6 +65,7 @@ export async function logGame(input: z.input<typeof schema>) {
           genres: meta.genres,
           tags: meta.tags,
           isNsfw,
+          isVr,
         })
         .onConflictDoUpdate({
           target: games.rawgId,
@@ -72,6 +75,7 @@ export async function logGame(input: z.input<typeof schema>) {
             genres: meta.genres,
             tags: meta.tags,
             isNsfw,
+            isVr,
           },
         })
         .returning();

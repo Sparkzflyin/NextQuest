@@ -24,11 +24,18 @@ export default async function LeaderboardsIndex() {
   // Game count per genre — games.genres is a text[] so we lateral-unnest and group.
   // NSFW filter folds into the join condition so counts reflect what the user
   // will actually see when they enter a board.
+  // 'VR' is a special canonical genre: RAWG has no VR genre, so we match
+  // games.is_vr instead of looking inside the genres array.
   const nsfwCond = allowNsfw ? sql`` : sql`and g.is_nsfw = false`;
   const rows = await db.execute<{ name: string; game_count: number }>(sql`
     select cg.name as name, count(g.id)::int as game_count
     from public.canonical_genres cg
-    left join public.games g on cg.name = any(g.genres) ${nsfwCond}
+    left join public.games g
+      on (
+        (cg.name = 'VR' and g.is_vr = true)
+        or (cg.name <> 'VR' and cg.name = any(g.genres))
+      )
+      ${nsfwCond}
     group by cg.name
     order by cg.name asc
   `);

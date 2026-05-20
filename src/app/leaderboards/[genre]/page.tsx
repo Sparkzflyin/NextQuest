@@ -30,9 +30,13 @@ export default async function GenreLeaderboard({ params }: { params: Promise<{ g
     allowNsfw = row?.allowNsfw ?? false;
   }
 
+  // 'VR' is a synthetic board — match games.is_vr instead of the genres array
+  // since RAWG doesn't list "VR" as a genre.
+  const genreMatch =
+    genre === "VR" ? eq(games.isVr, true) : sql`${genre} = ANY(${games.genres})`;
   const whereClause = allowNsfw
-    ? sql`${genre} = ANY(${games.genres})`
-    : and(sql`${genre} = ANY(${games.genres})`, eq(games.isNsfw, false));
+    ? genreMatch
+    : and(genreMatch, eq(games.isNsfw, false));
 
   const rows = await db
     .select({

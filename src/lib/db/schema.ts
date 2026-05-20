@@ -49,11 +49,17 @@ export const games = pgTable(
     // Stamped on insert/upsert in logGame + addCurrentlyPlaying; existing
     // rows are backfilled by the migration's heuristic SQL.
     isNsfw: boolean("is_nsfw").notNull().default(false),
+    // VR flag — RAWG doesn't have a "VR" genre, so the dedicated VR
+    // leaderboard (#20) reads this column instead of matching against genres.
+    // Stamped from RAWG tags via isVrFromRawg() at insert/upsert time;
+    // existing rows are backfilled by the 0013 migration.
+    isVr: boolean("is_vr").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index("games_genres_gin").using("gin", t.genres),
     index("games_is_nsfw_idx").on(t.isNsfw),
+    index("games_is_vr_idx").on(t.isVr),
   ],
 );
 
