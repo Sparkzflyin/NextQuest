@@ -155,6 +155,10 @@ revoke execute on function public.handle_new_user() from public, anon, authentic
 -- (no signed-URL dance for a public profile picture). Writes are owner-only:
 -- every file lives at "<user_id>/avatar" and the policy compares the first
 -- path segment to auth.uid().
+--
+-- No SELECT policy is created: public buckets serve object URLs without one,
+-- and a broad SELECT would let clients call storage.objects.list() and
+-- enumerate every user's files.
 insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
@@ -163,9 +167,6 @@ drop policy if exists "avatars_read_all"   on storage.objects;
 drop policy if exists "avatars_write_own"  on storage.objects;
 drop policy if exists "avatars_update_own" on storage.objects;
 drop policy if exists "avatars_delete_own" on storage.objects;
-
-create policy "avatars_read_all" on storage.objects for select
-  using (bucket_id = 'avatars');
 
 create policy "avatars_write_own" on storage.objects for insert
   with check (
